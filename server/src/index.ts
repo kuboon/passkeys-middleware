@@ -1,0 +1,488 @@
+import { serve } from '@hono/node-server';
+import { Hono } from 'hono';
+import {
+  InMemoryChallengeStore,
+  InMemoryPasskeyStore,
+  createPasskeyMiddleware,
+} from '@passkeys-middleware/hono';
+
+const rpID = process.env.RP_ID ?? 'localhost';
+const rpName = process.env.RP_NAME ?? 'Passkeys Middleware Demo';
+const port = Number.parseInt(process.env.PORT ?? '8787', 10);
+const defaultOrigin =
+  process.env.RP_ORIGIN ??
+  (rpID === 'localhost' ? `http://localhost:${port}` : `https://${rpID}`);
+const origin = process.env.RP_ORIGIN ?? defaultOrigin;
+
+const app = new Hono();
+const credentialStore = new InMemoryPasskeyStore();
+const challengeStore = new InMemoryChallengeStore();
+
+const passkeyMiddleware = createPasskeyMiddleware({
+  rpID,
+  rpName,
+  origin,
+  storage: credentialStore,
+  challengeStore,
+  mountPath: '/webauthn',
+});
+
+app.use('/webauthn', passkeyMiddleware);
+
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+
+const page = String.raw`<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Passkeys Middleware Demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background: radial-gradient(circle at top, rgba(99, 102, 241, 0.18), transparent 55%), radial-gradient(circle at bottom, rgba(16, 185, 129, 0.18), transparent 55%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      main {
+        background: rgba(255, 255, 255, 0.85);
+        color: #111;
+        max-width: 960px;
+        width: calc(100% - 2rem);
+        margin: 2rem auto;
+        padding: 2.5rem;
+        border-radius: 24px;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+        backdrop-filter: blur(12px);
+      }
+      h1 {
+        font-size: clamp(2rem, 3vw, 2.4rem);
+        margin-top: 0;
+      }
+      form {
+        margin-block: 1.5rem;
+        display: grid;
+        gap: 1rem;
+      }
+      fieldset {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 16px;
+        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.92);
+      }
+      legend {
+        font-weight: 600;
+        padding: 0 0.5rem;
+      }
+      label {
+        font-weight: 600;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        font-size: 0.95rem;
+      }
+      input[type="text"],
+      input[type="password"],
+      input[type="search"] {
+        border-radius: 12px;
+        border: 1px solid rgba(71, 85, 105, 0.35);
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      input:focus {
+        outline: none;
+        border-color: rgba(99, 102, 241, 0.6);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+      }
+      button {
+        appearance: none;
+        border: none;
+        border-radius: 999px;
+        padding: 0.75rem 1.8rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        background: linear-gradient(120deg, rgba(99, 102, 241, 0.9), rgba(59, 130, 246, 0.9));
+        color: white;
+        box-shadow: 0 8px 18px rgba(59, 130, 246, 0.35);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 26px rgba(59, 130, 246, 0.45);
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      .actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .status {
+        border-radius: 12px;
+        padding: 1rem;
+        background: rgba(15, 23, 42, 0.08);
+        color: #0f172a;
+        margin-block: 1rem;
+        min-height: 3rem;
+        display: flex;
+        align-items: center;
+      }
+      .status[data-status="success"] {
+        background: rgba(16, 185, 129, 0.12);
+        color: #047857;
+      }
+      .status[data-status="error"] {
+        background: rgba(239, 68, 68, 0.12);
+        color: #b91c1c;
+      }
+      .credentials {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 0.75rem;
+      }
+      .credentials li {
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        padding: 1rem 1.25rem;
+        display: grid;
+        gap: 0.4rem;
+      }
+      .credential-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .credential-header strong {
+        font-size: 1.05rem;
+      }
+      .credential-meta {
+        font-size: 0.85rem;
+        color: rgba(30, 41, 59, 0.85);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+      }
+      .credential-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .credential-meta span::before {
+        content: '•';
+        color: rgba(99, 102, 241, 0.75);
+      }
+      .credential-meta span:first-child::before {
+        content: '';
+        width: 0;
+      }
+      .credentials button {
+        background: rgba(239, 68, 68, 0.15);
+        color: #b91c1c;
+        box-shadow: none;
+        padding: 0.4rem 1rem;
+      }
+      .credentials button:hover {
+        background: rgba(239, 68, 68, 0.22);
+        transform: none;
+      }
+      footer {
+        margin-top: 2rem;
+        font-size: 0.85rem;
+        color: rgba(30, 41, 59, 0.75);
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Passkeys Middleware Demo</h1>
+      <p>
+        このデモは <code>@passkeys-middleware/hono</code> を使って作られた Hono アプリです。
+        一つのアカウントに複数のパスキーを登録し、それぞれにニックネームを設定できます。
+      </p>
+
+      <div class="status" id="status" data-status="info">準備中…</div>
+
+      <form id="register-form">
+        <fieldset>
+          <legend>アカウント</legend>
+          <label>
+            ユーザー名
+            <input id="username" type="text" name="username" autocomplete="username" placeholder="yamada" required />
+          </label>
+          <label>
+            表示名
+            <input id="displayName" type="text" name="displayName" autocomplete="name" placeholder="山田 太郎" />
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>パスキー登録</legend>
+          <label>
+            ニックネーム
+            <input id="nickname" type="text" name="nickname" placeholder="仕事用 iPhone" required />
+          </label>
+          <div class="actions">
+            <button type="submit">パスキーを登録</button>
+            <button type="button" id="refresh-credentials">登録済みの確認</button>
+          </div>
+        </fieldset>
+      </form>
+
+      <form id="authenticate-form">
+        <fieldset>
+          <legend>サインイン</legend>
+          <p>上記のユーザー名でパスキー認証を行います。</p>
+          <div class="actions">
+            <button type="submit">パスキーでサインイン</button>
+          </div>
+        </fieldset>
+      </form>
+
+      <section>
+        <h2>登録済みのパスキー</h2>
+        <ul class="credentials" id="credentials">
+          <li>まだパスキーが登録されていません。</li>
+        </ul>
+      </section>
+
+      <footer>
+        <p>
+          RP ID: <code>${escapeHtml(rpID)}</code> / Origin: <code>${escapeHtml(origin)}</code>
+        </p>
+      </footer>
+    </main>
+
+    <script src="/webauthn/client.js" defer></script>
+    <script type="module">
+      const statusEl = document.getElementById('status');
+      const registerForm = document.getElementById('register-form');
+      const authenticateForm = document.getElementById('authenticate-form');
+      const usernameInput = document.getElementById('username');
+      const displayNameInput = document.getElementById('displayName');
+      const nicknameInput = document.getElementById('nickname');
+      const credentialsList = document.getElementById('credentials');
+      const refreshButton = document.getElementById('refresh-credentials');
+
+      const waitForWebAuthn = () =>
+        new Promise((resolve, reject) => {
+          const started = Date.now();
+          const check = () => {
+            if (window.SimpleWebAuthnBrowser) {
+              resolve(window.SimpleWebAuthnBrowser);
+              return;
+            }
+            if (Date.now() - started > 5000) {
+              reject(new Error('SimpleWebAuthn クライアントの読み込みに失敗しました')); 
+              return;
+            }
+            setTimeout(check, 50);
+          };
+          check();
+        });
+
+      const escapeHtml = (value) =>
+        value
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+
+      const toDateTime = (timestamp) => {
+        try {
+          return new Date(timestamp).toLocaleString();
+        } catch {
+          return '-';
+        }
+      };
+
+      const log = (message, type = 'info') => {
+        statusEl.textContent = message;
+        statusEl.dataset.status = type;
+      };
+
+      const fetchJson = async (input, init = {}) => {
+        const response = await fetch(input, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(init.headers ?? {}),
+          },
+          credentials: 'include',
+          ...init,
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || response.statusText);
+        }
+        if (response.status === 204) {
+          return null;
+        }
+        return response.json();
+      };
+
+      const renderCredentials = (credentials) => {
+        credentialsList.innerHTML = '';
+        for (const credential of credentials) {
+          const li = document.createElement('li');
+          const encodedId = encodeURIComponent(credential.id);
+          li.innerHTML = `
+            <div class="credential-header">
+              <strong>${escapeHtml(credential.nickname)}</strong>
+              <button type="button" data-credential="${encodedId}">削除</button>
+            </div>
+            <div class="credential-meta">
+              <span>ID: ${escapeHtml(credential.id)}</span>
+              <span>更新: ${escapeHtml(toDateTime(credential.updatedAt))}</span>
+              <span>種類: ${escapeHtml(credential.deviceType ?? '不明')}</span>
+              <span>バックアップ: ${credential.backedUp ? 'はい' : 'いいえ'}</span>
+            </div>
+          `;
+          li.querySelector('button')?.addEventListener('click', async (event) => {
+            const username = usernameInput.value.trim();
+            if (!username) {
+              log('ユーザー名を入力してください。', 'error');
+              return;
+            }
+            const target = event.currentTarget;
+            const credentialId = target?.dataset.credential ?? encodedId;
+            try {
+              await fetchJson(`/webauthn/credentials/${credentialId}?username=${encodeURIComponent(username)}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+              });
+              log(`パスキー「${credential.nickname}」を削除しました。`, 'success');
+              await updateCredentials();
+            } catch (error) {
+              log(`削除に失敗しました: ${error.message}`, 'error');
+            }
+          });
+          credentialsList.appendChild(li);
+        }
+      };
+
+      const updateCredentials = async () => {
+        const username = usernameInput.value.trim();
+        if (!username) {
+          credentialsList.innerHTML = '<li>ユーザー名を入力すると登録済みのパスキーが表示されます。</li>';
+          return;
+        }
+        try {
+          const data = await fetchJson(`/webauthn/credentials?username=${encodeURIComponent(username)}`);
+          const credentials = Array.isArray(data?.credentials) ? data.credentials : [];
+          if (!credentials.length) {
+            credentialsList.innerHTML = '<li>登録済みのパスキーはありません。</li>';
+            return;
+          }
+          renderCredentials(credentials);
+        } catch (error) {
+          log(`登録済みパスキーの取得に失敗しました: ${error.message}`, 'error');
+        }
+      };
+
+      const webauthn = await waitForWebAuthn();
+      log('準備が整いました。');
+
+      registerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const username = usernameInput.value.trim();
+        const nickname = nicknameInput.value.trim();
+        if (!username) {
+          log('ユーザー名を入力してください。', 'error');
+          return;
+        }
+        if (!nickname) {
+          log('ニックネームを入力してください。', 'error');
+          return;
+        }
+        const displayName = displayNameInput.value.trim();
+        try {
+          log('パスキー登録オプションを取得しています…');
+          const options = await fetchJson('/webauthn/register/options', {
+            method: 'POST',
+            body: JSON.stringify({ username, displayName }),
+          });
+          log('パスキー登録を開始します…');
+          const attestationResponse = await webauthn.startRegistration(options);
+          log('登録結果を検証しています…');
+          await fetchJson('/webauthn/register/verify', {
+            method: 'POST',
+            body: JSON.stringify({ username, nickname, credential: attestationResponse }),
+          });
+          log(`「${nickname}」としてパスキーを登録しました。`, 'success');
+          nicknameInput.value = '';
+          await updateCredentials();
+        } catch (error) {
+          log(`パスキー登録に失敗しました: ${error.message}`, 'error');
+        }
+      });
+
+      authenticateForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const username = usernameInput.value.trim();
+        if (!username) {
+          log('ユーザー名を入力してください。', 'error');
+          return;
+        }
+        try {
+          log('認証オプションを取得しています…');
+          const options = await fetchJson('/webauthn/authenticate/options', {
+            method: 'POST',
+            body: JSON.stringify({ username }),
+          });
+          log('パスキー認証を開始します…');
+          const assertionResponse = await webauthn.startAuthentication(options);
+          log('認証結果を検証しています…');
+          await fetchJson('/webauthn/authenticate/verify', {
+            method: 'POST',
+            body: JSON.stringify({ username, credential: assertionResponse }),
+          });
+          log('サインインに成功しました。', 'success');
+        } catch (error) {
+          log(`サインインに失敗しました: ${error.message}`, 'error');
+        }
+      });
+
+      refreshButton.addEventListener('click', async () => {
+        await updateCredentials();
+      });
+
+      usernameInput.addEventListener('change', updateCredentials);
+      usernameInput.addEventListener('blur', updateCredentials);
+
+      await updateCredentials();
+    </script>
+  </body>
+</html>`;
+
+app.get('/', (c) => c.html(page));
+
+serve({
+  fetch: app.fetch,
+  port,
+});
+
+console.log(`Passkeys demo listening on http://localhost:${port}`);

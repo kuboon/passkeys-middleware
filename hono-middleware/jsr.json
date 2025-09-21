@@ -1,0 +1,12 @@
+{
+  "name": "@passkeys-middleware/hono",
+  "version": "0.1.0",
+  "exports": "./mod.ts",
+  "publish": {
+    "include": [
+      "README.md",
+      "mod.ts",
+      "src/**/*.ts"
+    ]
+  }
+}
