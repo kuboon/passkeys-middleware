@@ -1,0 +1,11 @@
+{
+  "imports": {
+    "@hono/node-server": "npm:@hono/node-server",
+    "hono": "npm:hono",
+    "ventojs": "npm:ventojs",
+    "@passkeys-middleware/hono": "../hono-middleware/mod.ts"
+  },
+  "tasks": {
+    "dev": "deno run --allow-env --allow-net --allow-read=.. src/index.ts"
+  }
+}

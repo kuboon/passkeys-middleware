@@ -1,8 +1,8 @@
 # @passkeys-middleware/hono
 
-A reusable [Hono](https://hono.dev/) middleware that adds [passkey / WebAuthn](https://passkeys.dev/) registration and authentication endpoints powered by [`@simplewebauthn/server`](https://github.com/MasterKale/SimpleWebAuthn).
+A reusable [Hono](https://hono.dev/) router that adds [passkey / WebAuthn](https://passkeys.dev/) registration and authentication endpoints powered by [`@simplewebauthn/server`](https://github.com/MasterKale/SimpleWebAuthn).
 
-The middleware exposes a ready-to-serve `client.js` bundle based on [`@simplewebauthn/client`](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/client) and a JSON API for bootstrapping and verifying passkey ceremonies. It is designed so the package can be published to both npm and [JSR](https://jsr.io/) as-is.
+The router exposes a ready-to-serve `client.js` bundle based on [`@simplewebauthn/client`](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/client) and a JSON API for bootstrapping and verifying passkey ceremonies. It is designed so the package can be published to both npm and [JSR](https://jsr.io/) as-is.
 
 ## Installation
 
@@ -28,21 +28,20 @@ import {
 const app = new Hono();
 const storage = new InMemoryPasskeyStore();
 
-app.use(
+app.route(
   '/webauthn',
   createPasskeyMiddleware({
     rpID: 'example.com',
     rpName: 'Example Passkeys Demo',
     origin: 'https://example.com',
     storage,
-    mountPath: '/webauthn',
   }),
 );
 
 app.get('/', (c) => c.text('Hello passkeys!'));
 ```
 
-The middleware exposes the following endpoints relative to the mount path (e.g. `/webauthn`):
+The router exposes the following endpoints relative to the route mount path (e.g. `/webauthn`):
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
@@ -62,13 +61,13 @@ All JSON endpoints return `4xx` errors when required parameters are missing or a
 
 ### Client bundle caching
 
-`client.js` is read from disk on first request and cached in-memory for subsequent responses. If you need custom caching headers you can wrap the middleware with your own handler.
+`client.js` is read from disk on first request and cached in-memory for subsequent responses. If you need custom caching headers you can wrap the router with your own handler.
 
-## Building from source
+## Local development
+
+Use the demo server in `../server` to exercise the router during development:
 
 ```bash
-npm install
-npm run build -w hono-middleware
+cd ../server
+deno task dev
 ```
-
-This compiles the TypeScript sources into `dist/` with type declarations so the package is ready for npm/JSR publication.
