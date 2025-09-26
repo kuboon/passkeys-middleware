@@ -20,7 +20,7 @@
     "mod.ts"
   ],
   "scripts": {
-    "build": "rimraf dist && tsc -p tsconfig.build.json"
+    "build": "rm -rf dist && tsc -p tsconfig.build.json"
   },
   "keywords": [
     "hono",
@@ -31,14 +31,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@simplewebauthn/client": "^10.0.0",
-    "@simplewebauthn/server": "^10.0.0",
-    "@simplewebauthn/types": "^10.0.0",
+    "@simplewebauthn/browser": "^13.0.0",
+    "@simplewebauthn/server": "^13.0.0",
     "hono": "^4.3.10"
-  },
-  "devDependencies": {
-    "@types/node": "^20.12.7",
-    "rimraf": "^5.0.5",
-    "typescript": "^5.4.5"
   }
 }

@@ -1,4 +1,4 @@
-import type { ChallengeType, PasskeyChallengeStore } from './types';
+import type { ChallengeType, PasskeyChallengeStore } from './types.ts';
 
 export class InMemoryChallengeStore implements PasskeyChallengeStore {
   private readonly challenges = new Map<string, Map<ChallengeType, string>>();

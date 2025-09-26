@@ -1,4 +1,4 @@
-import type { PasskeyCredential, PasskeyStorage, PasskeyUser } from './types';
+import type { PasskeyCredential, PasskeyStorage, PasskeyUser } from './types.ts';
 
 export class InMemoryPasskeyStore implements PasskeyStorage {
   private readonly users = new Map<string, PasskeyUser>();

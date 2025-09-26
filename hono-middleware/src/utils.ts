@@ -1,10 +1,13 @@
-const hasBuffer = typeof Buffer !== 'undefined';
+const globalWithBuffer = globalThis as typeof globalThis & {
+  Buffer?: typeof import('node:buffer').Buffer;
+};
+const hasBuffer = typeof globalWithBuffer.Buffer !== 'undefined';
 const hasBtoa = typeof btoa === 'function';
 const hasAtob = typeof atob === 'function';
 
 const toBase64 = (bytes: Uint8Array): string => {
   if (hasBuffer) {
-    return Buffer.from(bytes).toString('base64');
+    return globalWithBuffer.Buffer!.from(bytes).toString('base64');
   }
   let binary = '';
   for (const byte of bytes) {
@@ -18,7 +21,7 @@ const toBase64 = (bytes: Uint8Array): string => {
 
 const fromBase64 = (value: string): Uint8Array => {
   if (hasBuffer) {
-    return new Uint8Array(Buffer.from(value, 'base64'));
+    return new Uint8Array(globalWithBuffer.Buffer!.from(value, 'base64'));
   }
   if (hasAtob) {
     const binary = atob(value);
@@ -39,9 +42,9 @@ export const base64urlFromBuffer = (value: Uint8Array): string =>
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
 
-export const bufferFromBase64url = (value: string): Uint8Array => {
+export const bufferFromBase64url = (value: string): Uint8Array<ArrayBuffer> => {
   const normalized = padBase64(value.replace(/-/g, '+').replace(/_/g, '/'));
-  return fromBase64(normalized);
+  return fromBase64(normalized) as Uint8Array<ArrayBuffer>;
 };
 
 export const cryptoRandomUUIDFallback = (): string => {
@@ -87,7 +90,7 @@ const readTextFile = async (path: string): Promise<string> => {
 };
 
 export const loadSimpleWebAuthnClient = async (): Promise<string> => {
-  const moduleUrl = await resolveModuleUrl('@simplewebauthn/client/dist/bundle/index.umd.js');
+  const moduleUrl = "https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js";
   if (moduleUrl.startsWith('file://')) {
     return readTextFile(moduleUrl.slice('file://'.length));
   }

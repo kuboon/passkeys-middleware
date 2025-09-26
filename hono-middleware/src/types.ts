@@ -1,15 +1,13 @@
 import type {
+  AuthenticationResponseJSON,
+  AuthenticatorTransportFuture,
+  CredentialDeviceType,
+  RegistrationResponseJSON,
   GenerateAuthenticationOptionsOpts,
   GenerateRegistrationOptionsOpts,
   VerifyAuthenticationResponseOpts,
   VerifyRegistrationResponseOpts,
 } from '@simplewebauthn/server';
-import type {
-  AuthenticationResponseJSON,
-  AuthenticatorDeviceType,
-  AuthenticatorTransport,
-  RegistrationResponseJSON,
-} from '@simplewebauthn/types';
 
 export interface PasskeyUser {
   id: string;
@@ -23,8 +21,8 @@ export interface PasskeyCredential {
   nickname: string;
   publicKey: string;
   counter: number;
-  transports?: AuthenticatorTransport[];
-  deviceType?: AuthenticatorDeviceType;
+  transports?: AuthenticatorTransportFuture[];
+  deviceType?: CredentialDeviceType;
   backedUp?: boolean;
   createdAt: number;
   updatedAt: number;
@@ -73,7 +71,7 @@ export interface AuthenticationVerifyRequestBody {
 export type RegistrationOptionsOverrides = Partial<
   Omit<
     GenerateRegistrationOptionsOpts,
-    'rpID' | 'rpName' | 'userID' | 'userName' | 'userDisplayName' | 'excludeCredentials'
+    'rpID' | 'rpName' | 'userName' | 'userDisplayName' | 'excludeCredentials'
   >
 >;
 
@@ -91,7 +89,7 @@ export type VerifyRegistrationOverrides = Partial<
 export type VerifyAuthenticationOverrides = Partial<
   Omit<
     VerifyAuthenticationResponseOpts,
-    'response' | 'expectedChallenge' | 'expectedOrigin' | 'expectedRPID' | 'authenticator'
+    'response' | 'expectedChallenge' | 'expectedOrigin' | 'expectedRPID' | 'credential'
   >
 >;
 

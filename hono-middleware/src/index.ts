@@ -1,5 +1,7 @@
-import type { MiddlewareHandler } from 'hono';
+import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -26,14 +28,14 @@ import {
   RegistrationVerifyRequestBody,
   VerifyAuthenticationOverrides,
   VerifyRegistrationOverrides,
-} from './types';
-import { InMemoryChallengeStore } from './in-memory-challenge-store';
+} from './types.ts';
+import { InMemoryChallengeStore } from './in-memory-challenge-store.ts';
 import {
   base64urlFromBuffer,
   bufferFromBase64url,
   cryptoRandomUUIDFallback,
   loadSimpleWebAuthnClient,
-} from './utils';
+} from './utils.ts';
 
 const randomUUID = () => globalThis.crypto?.randomUUID() ?? cryptoRandomUUIDFallback();
 
@@ -56,7 +58,7 @@ const normalizeMountPath = (path: string) => {
 
 const normalizeNickname = (nickname: string | undefined) => nickname?.trim() ?? '';
 
-const jsonError = (status: number, message: string) =>
+const jsonError = (status: ContentfulStatusCode, message: string) =>
   new HTTPException(status, { message });
 
 const ensureUser = async (
@@ -76,14 +78,14 @@ const respond = <T>(handler: () => Promise<T>) =>
       throw error;
     }
     if (error instanceof Error) {
-      throw new HTTPException(500, { message: error.message });
+      throw new HTTPException(500, { message: error.message, cause: error});
     }
-    throw new HTTPException(500, { message: 'Unexpected error' });
+    throw new HTTPException(500, { message: 'Unexpected error', cause: error });
   });
 
 export const createPasskeyMiddleware = (
   options: PasskeyMiddlewareOptions,
-): MiddlewareHandler => {
+) => {
   const {
     rpID,
     rpName,
@@ -96,292 +98,285 @@ export const createPasskeyMiddleware = (
   } = options;
   const challengeStore = options.challengeStore ?? new InMemoryChallengeStore();
   const mountPath = normalizeMountPath(options.mountPath ?? '');
+  const router = new Hono();
+  const routes = mountPath ? router.basePath(mountPath) : router;
 
-  return async (c, next) => {
-    const url = new URL(c.req.url);
-    if (mountPath && !url.pathname.startsWith(mountPath)) {
-      return next();
+  const ensureJsonBody = async <T>(c: Context) => {
+    try {
+      return (await c.req.json()) as T;
+    } catch {
+      throw jsonError(400, 'Invalid JSON payload');
     }
+  };
 
-    const relativePath = url.pathname.slice(mountPath.length) || '/';
-    const method = c.req.method.toUpperCase();
+  const ensureUserOrThrow = async (username: string) => {
+    const user = await ensureUser(storage, username);
+    if (!user) {
+      throw jsonError(404, 'User not found');
+    }
+    return user;
+  };
 
-    const ensureJsonBody = async <T>() => {
-      try {
-        return (await c.req.json()) as T;
-      } catch {
-        throw jsonError(400, 'Invalid JSON payload');
+  const setNoStore = (c: Context) => {
+    c.header('Cache-Control', 'no-store');
+  };
+
+  routes.get('/client.js', (c) =>
+    respond(async () => {
+      setNoStore(c);
+      const bundle = await loadClientBundle();
+      c.header('Content-Type', 'application/javascript; charset=utf-8');
+      return c.body(bundle);
+    }),
+  );
+
+  routes.get('/credentials', (c) =>
+    respond(async () => {
+      setNoStore(c);
+      const username = c.req.query('username')?.trim();
+      if (!username) {
+        throw jsonError(400, 'Missing username query parameter');
       }
-    };
-
-    const ensureUserOrThrow = async (username: string) => {
-      const user = await respond(async () => ensureUser(storage, username));
+      const user = await ensureUser(storage, username);
       if (!user) {
-        throw jsonError(404, 'User not found');
+        return c.json({ user: null, credentials: [] });
       }
-      return user;
-    };
+      const credentials = await storage.getCredentialsByUserId(user.id);
+      return c.json({ user, credentials });
+    }),
+  );
 
-    const setNoStore = () => {
-      c.header('Cache-Control', 'no-store');
-    };
+  routes.delete('/credentials/:credentialId', (c) =>
+    respond(async () => {
+      setNoStore(c);
+      if (!storage.deleteCredential) {
+        throw jsonError(405, 'Credential deletion not supported');
+      }
+      const credentialIdParam = c.req.param('credentialId');
+      const credentialId = credentialIdParam ? decodeURIComponent(credentialIdParam) : '';
+      const username = c.req.query('username')?.trim();
+      if (!credentialId) {
+        throw jsonError(400, 'Missing credential identifier');
+      }
+      if (!username) {
+        throw jsonError(400, 'Missing username query parameter');
+      }
+      const user = await ensureUserOrThrow(username);
+      const credential = await storage.getCredentialById(credentialId);
+      if (!credential || credential.userId !== user.id) {
+        throw jsonError(404, 'Credential not found');
+      }
+      await storage.deleteCredential(credentialId);
+      return c.json({ success: true });
+    }),
+  );
 
-    if (method === 'GET' && relativePath === '/client.js') {
-      return respond(async () => {
-        setNoStore();
-        const bundle = await loadClientBundle();
-        c.header('Content-Type', 'application/javascript; charset=utf-8');
-        return c.body(bundle);
-      });
-    }
-
-    if (method === 'GET' && relativePath === '/credentials') {
-      return respond(async () => {
-        setNoStore();
-        const username = c.req.query('username')?.trim();
-        if (!username) {
-          throw jsonError(400, 'Missing username query parameter');
-        }
-        const user = await ensureUser(storage, username);
-        if (!user) {
-          return c.json({ user: null, credentials: [] });
-        }
-        const credentials = await storage.getCredentialsByUserId(user.id);
-        return c.json({ user, credentials });
-      });
-    }
-
-    if (method === 'DELETE' && relativePath.startsWith('/credentials/')) {
-      return respond(async () => {
-        setNoStore();
-        if (!storage.deleteCredential) {
-          throw jsonError(405, 'Credential deletion not supported');
-        }
-        const credentialId = decodeURIComponent(relativePath.replace('/credentials/', ''));
-        const username = c.req.query('username')?.trim();
-        if (!credentialId) {
-          throw jsonError(400, 'Missing credential identifier');
-        }
-        if (!username) {
-          throw jsonError(400, 'Missing username query parameter');
-        }
-        const user = await ensureUserOrThrow(username);
-        const credential = await storage.getCredentialById(credentialId);
-        if (!credential || credential.userId !== user.id) {
-          throw jsonError(404, 'Credential not found');
-        }
-        await storage.deleteCredential(credentialId);
-        return c.json({ success: true });
-      });
-    }
-
-    if (method === 'POST' && relativePath === '/register/options') {
-      return respond(async () => {
-        setNoStore();
-        const body = await ensureJsonBody<RegistrationOptionsRequestBody>();
-        const username = body.username?.trim();
-        if (!username) {
-          throw jsonError(400, 'username is required');
-        }
-        let user = await ensureUser(storage, username);
-        if (!user) {
-          const displayName = body.displayName?.trim() || username;
-          user = {
-            id: randomUUID(),
-            username,
-            displayName,
-          } satisfies PasskeyUser;
-          try {
-            await storage.createUser(user);
-          } catch (err: any) {
-            // If user already exists due to race condition, fetch the existing user
-            // You may need to adjust the error check depending on your storage implementation
-            if (err && (err.code === 'USER_EXISTS' || err.message?.includes('exists'))) {
-              user = await ensureUser(storage, username);
-              if (!user) {
-                throw jsonError(500, 'Failed to fetch existing user after duplicate creation error');
-              }
-            } else {
-              throw err;
+  routes.post('/register/options', (c) =>
+    respond(async () => {
+      setNoStore(c);
+      const body = await ensureJsonBody<RegistrationOptionsRequestBody>(c);
+      const username = body.username?.trim();
+      if (!username) {
+        throw jsonError(400, 'username is required');
+      }
+      let user = await ensureUser(storage, username);
+      if (!user) {
+        const displayName = body.displayName?.trim() || username;
+        user = {
+          id: randomUUID(),
+          username,
+          displayName,
+        } satisfies PasskeyUser;
+        try {
+          await storage.createUser(user);
+        } catch (err: any) {
+          // If user already exists due to race condition, fetch the existing user
+          // You may need to adjust the error check depending on your storage implementation
+          if (err && (err.code === 'USER_EXISTS' || err.message?.includes('exists'))) {
+            user = await ensureUser(storage, username);
+            if (!user) {
+              throw jsonError(500, 'Failed to fetch existing user after duplicate creation error');
             }
+          } else {
+            throw err;
           }
         }
+      }
 
-        const existingCredentials = await storage.getCredentialsByUserId(user.id);
-        const optionsInput: GenerateRegistrationOptionsOpts = {
-          rpName,
-          rpID,
-          userID: user.id,
-          userName: user.username,
-          userDisplayName: user.displayName,
-          excludeCredentials: existingCredentials.map((credential) => ({
-            id: bufferFromBase64url(credential.id),
-            type: 'public-key',
-            transports: credential.transports,
-          })),
-          ...registrationOptions,
-        };
+      const existingCredentials = await storage.getCredentialsByUserId(user.id);
+      const optionsInput: GenerateRegistrationOptionsOpts = {
+        rpName,
+        rpID,
+        userName: user.username,
+        userDisplayName: user.displayName,
+        excludeCredentials: existingCredentials.map((credential) => ({
+          id: credential.id,
+          transports: credential.transports,
+        })),
+        ...registrationOptions,
+      };
 
-        const optionsResult = await generateRegistrationOptions(optionsInput);
-        await challengeStore.setChallenge(user.id, 'registration', optionsResult.challenge);
-        return c.json(optionsResult);
+      const optionsResult = await generateRegistrationOptions(optionsInput);
+      await challengeStore.setChallenge(user.id, 'registration', optionsResult.challenge);
+      return c.json(optionsResult);
+    }),
+  );
+
+  routes.post('/register/verify', (c) =>
+    respond(async () => {
+      setNoStore(c);
+      const body = await ensureJsonBody<RegistrationVerifyRequestBody>(c);
+      const username = body.username?.trim();
+      const nickname = normalizeNickname(body.nickname);
+      if (!username) {
+        throw jsonError(400, 'username is required');
+      }
+      if (!nickname) {
+        throw jsonError(400, 'nickname is required');
+      }
+      const user = await ensureUserOrThrow(username);
+      const expectedChallenge = await challengeStore.getChallenge(user.id, 'registration');
+      if (!expectedChallenge) {
+        throw jsonError(400, 'No registration challenge for user');
+      }
+
+      const verification = await verifyRegistrationResponse({
+        response: body.credential,
+        expectedChallenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        ...verifyRegistrationOptions,
       });
-    }
 
-    if (method === 'POST' && relativePath === '/register/verify') {
-      return respond(async () => {
-        setNoStore();
-        const body = await ensureJsonBody<RegistrationVerifyRequestBody>();
-        const username = body.username?.trim();
-        const nickname = normalizeNickname(body.nickname);
-        if (!username) {
-          throw jsonError(400, 'username is required');
-        }
-        if (!nickname) {
-          throw jsonError(400, 'nickname is required');
-        }
-        const user = await ensureUserOrThrow(username);
-        const expectedChallenge = await challengeStore.getChallenge(user.id, 'registration');
-        if (!expectedChallenge) {
-          throw jsonError(400, 'No registration challenge for user');
-        }
+      const { registrationInfo } = verification;
+      if (!registrationInfo) {
+        throw jsonError(400, 'Registration could not be verified');
+      }
 
-        const verification = await verifyRegistrationResponse({
-          response: body.credential,
-          expectedChallenge,
-          expectedOrigin: origin,
-          expectedRPID: rpID,
-          ...verifyRegistrationOptions,
-        });
+      const registrationCredential = registrationInfo.credential;
+      const credentialId = registrationCredential.id;
+      const credentialPublicKey = base64urlFromBuffer(
+        registrationCredential.publicKey,
+      );
 
-        const { registrationInfo } = verification;
-        if (!registrationInfo) {
-          throw jsonError(400, 'Registration could not be verified');
-        }
+      const now = Date.now();
+      const storedCredential: PasskeyCredential = {
+        id: credentialId,
+        userId: user.id,
+        nickname,
+        publicKey: credentialPublicKey,
+        counter: registrationCredential.counter,
+        transports:
+          registrationCredential.transports ?? body.credential.response.transports,
+        deviceType: registrationInfo.credentialDeviceType,
+        backedUp: registrationInfo.credentialBackedUp,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-        const credentialId = base64urlFromBuffer(registrationInfo.credentialID);
-        const credentialPublicKey = base64urlFromBuffer(
-          registrationInfo.credentialPublicKey,
-        );
+      await storage.saveCredential(storedCredential);
+      await challengeStore.clearChallenge(user.id, 'registration');
 
-        const now = Date.now();
-        const storedCredential: PasskeyCredential = {
-          id: credentialId,
-          userId: user.id,
-          nickname,
-          publicKey: credentialPublicKey,
-          counter: registrationInfo.counter,
-          transports: body.credential.response.transports,
-          deviceType: registrationInfo.credentialDeviceType,
-          backedUp: registrationInfo.credentialBackedUp,
-          createdAt: now,
-          updatedAt: now,
-        };
-
-        await storage.saveCredential(storedCredential);
-        await challengeStore.clearChallenge(user.id, 'registration');
-
-        return c.json({
-          verified: verification.verified,
-          credential: storedCredential,
-        });
+      return c.json({
+        verified: verification.verified,
+        credential: storedCredential,
       });
-    }
+    }),
+  );
 
-    if (method === 'POST' && relativePath === '/authenticate/options') {
-      return respond(async () => {
-        setNoStore();
-        const body = await ensureJsonBody<AuthenticationOptionsRequestBody>();
-        const username = body.username?.trim();
-        if (!username) {
-          throw jsonError(400, 'username is required');
-        }
-        const user = await ensureUserOrThrow(username);
-        const credentials = await storage.getCredentialsByUserId(user.id);
-        if (credentials.length === 0) {
-          throw jsonError(404, 'No registered credentials for user');
-        }
+  routes.post('/authenticate/options', (c) =>
+    respond(async () => {
+      setNoStore(c);
+      const body = await ensureJsonBody<AuthenticationOptionsRequestBody>(c);
+      const username = body.username?.trim();
+      if (!username) {
+        throw jsonError(400, 'username is required');
+      }
+      const user = await ensureUserOrThrow(username);
+      const credentials = await storage.getCredentialsByUserId(user.id);
+      if (credentials.length === 0) {
+        throw jsonError(404, 'No registered credentials for user');
+      }
 
-        const optionsInput: GenerateAuthenticationOptionsOpts = {
-          rpID,
-          allowCredentials: credentials.map((credential) => ({
-            id: bufferFromBase64url(credential.id),
-            type: 'public-key',
-            transports: credential.transports,
-          })),
-          userVerification: 'preferred',
-          ...authenticationOptions,
-        };
+      const optionsInput: GenerateAuthenticationOptionsOpts = {
+        rpID,
+        allowCredentials: credentials.map((credential) => ({
+          id: credential.id,
+          transports: credential.transports,
+        })),
+        userVerification: 'preferred',
+        ...authenticationOptions,
+      };
 
-        const optionsResult = await generateAuthenticationOptions(optionsInput);
-        await challengeStore.setChallenge(user.id, 'authentication', optionsResult.challenge);
-        return c.json(optionsResult);
+      const optionsResult = await generateAuthenticationOptions(optionsInput);
+      await challengeStore.setChallenge(user.id, 'authentication', optionsResult.challenge);
+      return c.json(optionsResult);
+    }),
+  );
+
+  routes.post('/authenticate/verify', (c) =>
+    respond(async () => {
+      setNoStore(c);
+      const body = await ensureJsonBody<AuthenticationVerifyRequestBody>(c);
+      const username = body.username?.trim();
+      if (!username) {
+        throw jsonError(400, 'username is required');
+      }
+      const user = await ensureUserOrThrow(username);
+      const expectedChallenge = await challengeStore.getChallenge(user.id, 'authentication');
+      if (!expectedChallenge) {
+        throw jsonError(400, 'No authentication challenge for user');
+      }
+
+      const credentialId = body.credential.id;
+      const storedCredential = await storage.getCredentialById(credentialId);
+      if (!storedCredential || storedCredential.userId !== user.id) {
+        throw jsonError(404, 'Credential not found');
+      }
+
+      const verification = await verifyAuthenticationResponse({
+        response: body.credential,
+        expectedChallenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        credential: {
+          id: storedCredential.id,
+          publicKey: bufferFromBase64url(storedCredential.publicKey),
+          counter: storedCredential.counter,
+          transports: storedCredential.transports,
+        },
+        ...verifyAuthenticationOptions,
       });
-    }
 
-    if (method === 'POST' && relativePath === '/authenticate/verify') {
-      return respond(async () => {
-        setNoStore();
-        const body = await ensureJsonBody<AuthenticationVerifyRequestBody>();
-        const username = body.username?.trim();
-        if (!username) {
-          throw jsonError(400, 'username is required');
-        }
-        const user = await ensureUserOrThrow(username);
-        const expectedChallenge = await challengeStore.getChallenge(user.id, 'authentication');
-        if (!expectedChallenge) {
-          throw jsonError(400, 'No authentication challenge for user');
-        }
+      const { authenticationInfo } = verification;
+      if (!authenticationInfo) {
+        throw jsonError(400, 'Authentication could not be verified');
+      }
 
-        const credentialId = body.credential.id;
-        const storedCredential = await storage.getCredentialById(credentialId);
-        if (!storedCredential || storedCredential.userId !== user.id) {
-          throw jsonError(404, 'Credential not found');
-        }
+      storedCredential.counter = authenticationInfo.newCounter;
+      storedCredential.updatedAt = Date.now();
+      storedCredential.backedUp = authenticationInfo.credentialBackedUp;
+      storedCredential.deviceType = authenticationInfo.credentialDeviceType;
+      await storage.updateCredential(storedCredential);
+      await challengeStore.clearChallenge(user.id, 'authentication');
 
-        const verification = await verifyAuthenticationResponse({
-          response: body.credential,
-          expectedChallenge,
-          expectedOrigin: origin,
-          expectedRPID: rpID,
-          authenticator: {
-            credentialPublicKey: bufferFromBase64url(storedCredential.publicKey),
-            credentialID: bufferFromBase64url(storedCredential.id),
-            counter: storedCredential.counter,
-            transports: storedCredential.transports,
-          },
-          ...verifyAuthenticationOptions,
-        });
-
-        const { authenticationInfo } = verification;
-        if (!authenticationInfo) {
-          throw jsonError(400, 'Authentication could not be verified');
-        }
-
-        storedCredential.counter = authenticationInfo.newCounter;
-        storedCredential.updatedAt = Date.now();
-        storedCredential.backedUp = authenticationInfo.credentialBackedUp;
-        storedCredential.deviceType = authenticationInfo.credentialDeviceType;
-        await storage.updateCredential(storedCredential);
-        await challengeStore.clearChallenge(user.id, 'authentication');
-
-        return c.json({
-          verified: verification.verified,
-          credential: storedCredential,
-        });
+      return c.json({
+        verified: verification.verified,
+        credential: storedCredential,
       });
-    }
+    }),
+  );
 
-    if (relativePath === '/' || relativePath === '') {
-      return next();
-    }
-
+  routes.all('*', () => {
     throw jsonError(404, 'Endpoint not found');
-  };
+  });
+
+  return router;
 };
 
-export type PasskeyMiddleware = ReturnType<typeof createPasskeyMiddleware>;
+export type PasskeyRouter = ReturnType<typeof createPasskeyMiddleware>;
+export type PasskeyMiddleware = PasskeyRouter;
 
-export { InMemoryChallengeStore } from './in-memory-challenge-store';
-export { InMemoryPasskeyStore } from './in-memory-passkey-store';
-export * from './types';
+export { InMemoryChallengeStore } from './in-memory-challenge-store.ts';
+export { InMemoryPasskeyStore } from './in-memory-passkey-store.ts';
+export * from './types.ts';
