@@ -1,7 +1,3 @@
-import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-
 import type { MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import {
@@ -32,22 +28,23 @@ import {
   VerifyRegistrationOverrides,
 } from './types';
 import { InMemoryChallengeStore } from './in-memory-challenge-store';
+import {
+  base64urlFromBuffer,
+  bufferFromBase64url,
+  cryptoRandomUUIDFallback,
+  loadSimpleWebAuthnClient,
+} from './utils';
 
-const require = createRequire(import.meta.url);
-const clientBundlePath = require.resolve(
-  '@simplewebauthn/client/dist/bundle/index.umd.js',
-);
+const randomUUID = () => globalThis.crypto?.randomUUID() ?? cryptoRandomUUIDFallback();
+
 let clientBundlePromise: Promise<string> | undefined;
 
 const loadClientBundle = () => {
   if (!clientBundlePromise) {
-    clientBundlePromise = readFile(clientBundlePath, 'utf8');
+    clientBundlePromise = loadSimpleWebAuthnClient();
   }
   return clientBundlePromise;
 };
-
-const base64urlFromBuffer = (value: Uint8Array) => Buffer.from(value).toString('base64url');
-const bufferFromBase64url = (value: string) => Buffer.from(value, 'base64url');
 
 const normalizeMountPath = (path: string) => {
   if (!path || path === '/') return '';
