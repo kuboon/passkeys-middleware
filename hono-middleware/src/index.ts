@@ -191,7 +191,20 @@ export const createPasskeyMiddleware = (
             username,
             displayName,
           } satisfies PasskeyUser;
-          await storage.createUser(user);
+          try {
+            await storage.createUser(user);
+          } catch (err: any) {
+            // If user already exists due to race condition, fetch the existing user
+            // You may need to adjust the error check depending on your storage implementation
+            if (err && (err.code === 'USER_EXISTS' || err.message?.includes('exists'))) {
+              user = await ensureUser(storage, username);
+              if (!user) {
+                throw jsonError(500, 'Failed to fetch existing user after duplicate creation error');
+              }
+            } else {
+              throw err;
+            }
+          }
         }
 
         const existingCredentials = await storage.getCredentialsByUserId(user.id);
