@@ -158,13 +158,13 @@ const getExecutionContext = (c: Context): ExecutionContext | undefined => {
   }
 };
 
-const getRequestOrigin = (c: Context): string => {
+const getRequestUrl = (c: Context): URL => {
   const headerOrigin = c.req.header("origin")?.trim();
   if (headerOrigin) {
-    return headerOrigin;
+    return new URL(headerOrigin);
   }
   try {
-    return new URL(c.req.url).origin;
+    return new URL(c.req.url);
   } catch {
     throw jsonError(400, "Unable to determine request origin");
   }
@@ -174,7 +174,6 @@ export const createPasskeyMiddleware = (
   options: PasskeyMiddlewareOptions,
 ) => {
   const {
-    rpID,
     rpName,
     storage,
     registrationOptions,
@@ -320,10 +319,11 @@ export const createPasskeyMiddleware = (
         }
       }
 
+      const requestUrl = getRequestUrl(c);
       const existingCredentials = await storage.getCredentialsByUserId(user.id);
       const optionsInput: GenerateRegistrationOptionsOpts = {
         rpName,
-        rpID,
+        rpID: requestUrl.hostname,
         userName: user.username,
         userDisplayName: user.displayName,
         excludeCredentials: existingCredentials.map((credential) => ({
@@ -336,13 +336,12 @@ export const createPasskeyMiddleware = (
       const optionsResult = await webauthn.generateRegistrationOptions(
         optionsInput,
       );
-      const requestOrigin = getRequestOrigin(c);
       await setSignedChallengeCookie(c, {
         userId: user.id,
         type: "registration",
         value: {
           challenge: optionsResult.challenge,
-          origin: requestOrigin,
+          origin: requestUrl.origin,
         },
       });
       return c.json(optionsResult);
@@ -375,7 +374,7 @@ export const createPasskeyMiddleware = (
         response: body.credential,
         expectedChallenge,
         expectedOrigin,
-        expectedRPID: rpID,
+        expectedRPID: new URL(expectedOrigin).hostname,
         ...verifyRegistrationOptions,
       });
 
@@ -427,8 +426,9 @@ export const createPasskeyMiddleware = (
         throw jsonError(404, "No registered credentials for user");
       }
 
+      const requestUrl = getRequestUrl(c);
       const optionsInput: GenerateAuthenticationOptionsOpts = {
-        rpID,
+        rpID: requestUrl.hostname,
         allowCredentials: credentials.map((credential) => ({
           id: credential.id,
           transports: credential.transports,
@@ -440,13 +440,12 @@ export const createPasskeyMiddleware = (
       const optionsResult = await webauthn.generateAuthenticationOptions(
         optionsInput,
       );
-      const requestOrigin = getRequestOrigin(c);
       await setSignedChallengeCookie(c, {
         userId: user.id,
         type: "authentication",
         value: {
           challenge: optionsResult.challenge,
-          origin: requestOrigin,
+          origin: requestUrl.origin,
         },
       });
       return c.json(optionsResult);
@@ -481,7 +480,7 @@ export const createPasskeyMiddleware = (
         response: body.credential,
         expectedChallenge,
         expectedOrigin,
-        expectedRPID: rpID,
+        expectedRPID: new URL(expectedOrigin).hostname,
         credential: {
           id: storedCredential.id,
           publicKey: decodeBase64Url(storedCredential.publicKey),
