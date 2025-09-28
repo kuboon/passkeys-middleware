@@ -21,12 +21,17 @@ import {
   PasskeyMiddlewareOptions,
   PasskeySessionState,
   PasskeyStorage,
+  PasskeyStoredChallenge,
   PasskeyUser,
   RegistrationOptionsRequestBody,
   RegistrationVerifyRequestBody,
 } from "./types.ts";
-import { InMemoryChallengeStore } from "./in-memory-challenge-store.ts";
 import { base64 } from "@hexagon/base64";
+import {
+  CHALLENGE_COOKIE_NAME,
+  createSignedChallengeValue,
+  verifySignedChallengeValue,
+} from "./challenge-signature.ts";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -46,6 +51,45 @@ const cookieBaseOptions = {
   httpOnly: true,
   sameSite: "Lax" as const,
   path: "/",
+};
+const CHALLENGE_COOKIE_MAX_AGE_SECONDS = 300;
+
+const isSecureRequest = (c: Context) => c.req.url.startsWith("https://");
+
+const setSignedChallengeCookie = async (
+  c: Context,
+  payload: {
+    userId: string;
+    type: "registration" | "authentication";
+    value: PasskeyStoredChallenge;
+  },
+) => {
+  const signedValue = await createSignedChallengeValue(payload);
+  setCookie(c, CHALLENGE_COOKIE_NAME, signedValue, {
+    ...cookieBaseOptions,
+    secure: isSecureRequest(c),
+    maxAge: CHALLENGE_COOKIE_MAX_AGE_SECONDS,
+  });
+};
+
+const clearSignedChallengeCookie = (c: Context) => {
+  setCookie(c, CHALLENGE_COOKIE_NAME, "", {
+    ...cookieBaseOptions,
+    secure: isSecureRequest(c),
+    maxAge: 0,
+  });
+};
+
+const readSignedChallenge = async (
+  c: Context,
+  expected: { userId: string; type: "registration" | "authentication" },
+): Promise<PasskeyStoredChallenge | null> => {
+  const token = getCookie(c, CHALLENGE_COOKIE_NAME);
+  const result = await verifySignedChallengeValue(token, expected);
+  if (!result) {
+    clearSignedChallengeCookie(c);
+  }
+  return result;
 };
 
 let clientBundlePromise: Promise<string> | undefined;
@@ -171,7 +215,6 @@ export const createPasskeyMiddleware = (
     verifyRegistrationOptions,
     verifyAuthenticationOptions,
   } = options;
-  const challengeStore = options.challengeStore ?? new InMemoryChallengeStore();
   const webauthn = {
     generateRegistrationOptions,
     verifyRegistrationResponse,
@@ -327,14 +370,14 @@ export const createPasskeyMiddleware = (
         optionsInput,
       );
       const requestOrigin = getRequestOrigin(c);
-      await challengeStore.setChallenge(
-        user.id,
-        "registration",
-        {
+      await setSignedChallengeCookie(c, {
+        userId: user.id,
+        type: "registration",
+        value: {
           challenge: optionsResult.challenge,
           origin: requestOrigin,
         },
-      );
+      });
       return c.json(optionsResult);
     }));
 
@@ -351,10 +394,10 @@ export const createPasskeyMiddleware = (
         throw jsonError(400, "nickname is required");
       }
       const user = await ensureUserOrThrow(username);
-      const storedChallenge = await challengeStore.getChallenge(
-        user.id,
-        "registration",
-      );
+      const storedChallenge = await readSignedChallenge(c, {
+        userId: user.id,
+        type: "registration",
+      });
       if (!storedChallenge) {
         throw jsonError(400, "No registration challenge for user");
       }
@@ -395,7 +438,7 @@ export const createPasskeyMiddleware = (
       };
 
       await storage.saveCredential(storedCredential);
-      await challengeStore.clearChallenge(user.id, "registration");
+      clearSignedChallengeCookie(c);
 
       return c.json({
         verified: verification.verified,
@@ -438,14 +481,14 @@ export const createPasskeyMiddleware = (
         optionsInput,
       );
       const requestOrigin = getRequestOrigin(c);
-      await challengeStore.setChallenge(
-        user.id,
-        "authentication",
-        {
+      await setSignedChallengeCookie(c, {
+        userId: user.id,
+        type: "authentication",
+        value: {
           challenge: optionsResult.challenge,
           origin: requestOrigin,
         },
-      );
+      });
       return c.json(optionsResult);
     }));
 
@@ -458,10 +501,10 @@ export const createPasskeyMiddleware = (
         throw jsonError(400, "username is required");
       }
       const user = await ensureUserOrThrow(username);
-      const storedChallenge = await challengeStore.getChallenge(
-        user.id,
-        "authentication",
-      );
+      const storedChallenge = await readSignedChallenge(c, {
+        userId: user.id,
+        type: "authentication",
+      });
       if (!storedChallenge) {
         throw jsonError(400, "No authentication challenge for user");
       }
@@ -498,7 +541,7 @@ export const createPasskeyMiddleware = (
       storedCredential.backedUp = authenticationInfo.credentialBackedUp;
       storedCredential.deviceType = authenticationInfo.credentialDeviceType;
       await storage.updateCredential(storedCredential);
-      await challengeStore.clearChallenge(user.id, "authentication");
+      clearSignedChallengeCookie(c);
 
       const redirectFromStore = pendingRedirects.get(user.id);
       pendingRedirects.delete(user.id);
@@ -543,6 +586,5 @@ export const createPasskeyMiddleware = (
 
 export type PasskeyMiddleware = ReturnType<typeof createPasskeyMiddleware>;
 
-export { InMemoryChallengeStore } from "./in-memory-challenge-store.ts";
 export { InMemoryPasskeyStore } from "./in-memory-passkey-store.ts";
 export * from "./types.ts";

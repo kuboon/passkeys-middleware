@@ -90,7 +90,7 @@ export interface AuthenticateResult {
 const buildUrl = (mountPath: string, endpoint: string) =>
   `${mountPath}${endpoint}`;
 
-const fetchJson = async <T = unknown> (
+const fetchJson = async <T = unknown>(
   fetchImpl: FetchLike,
   input: string,
   init?: RequestInit,

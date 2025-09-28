@@ -51,19 +51,6 @@ export interface PasskeyStoredChallenge {
   origin: string;
 }
 
-export interface PasskeyChallengeStore {
-  setChallenge(
-    userId: string,
-    type: ChallengeType,
-    value: PasskeyStoredChallenge,
-  ): Promise<void>;
-  getChallenge(
-    userId: string,
-    type: ChallengeType,
-  ): Promise<PasskeyStoredChallenge | null>;
-  clearChallenge(userId: string, type: ChallengeType): Promise<void>;
-}
-
 export interface RegistrationOptionsRequestBody {
   username: string;
   displayName?: string;
@@ -134,7 +121,6 @@ export interface PasskeyMiddlewareOptions {
   rpID: string;
   rpName: string;
   storage: PasskeyStorage;
-  challengeStore?: PasskeyChallengeStore;
   mountPath?: string;
   registrationOptions?: RegistrationOptionsOverrides;
   authenticationOptions?: AuthenticationOptionsOverrides;

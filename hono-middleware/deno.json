@@ -11,10 +11,11 @@
     "hono/utils/http-status": "npm:hono@^4.3.10/utils/http-status",
     "@simplewebauthn/browser": "npm:@simplewebauthn/browser@^13.2.0",
     "@simplewebauthn/server": "npm:@simplewebauthn/server@^13.0.0",
-    "@hexagon/base64": "npm:@hexagon/base64@^2.0.4"
+    "@hexagon/base64": "npm:@hexagon/base64@^2.0.4",
+    "@std/assert": "jsr:@std/assert@^1.0.0"
   },
   "tasks": {
-    "check": "deno check mod.ts src/index.ts src/utils.ts src/types.ts src/in-memory-challenge-store.ts src/in-memory-passkey-store.ts",
+    "check": "deno check mod.ts src/index.ts src/utils.ts src/types.ts src/challenge-signature.ts src/in-memory-passkey-store.ts",
     "fmt": "deno fmt",
     "lint": "deno lint"
   },

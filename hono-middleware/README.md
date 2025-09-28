@@ -68,16 +68,18 @@ middleware stores the session in `c.get('passkey')` and includes an optional
 users back to the protected URL they originally visited.
 
 The middleware derives the relying-party origin for each request from the
-incoming `Origin` header (falling back to the request URL) and persists it
-alongside the issued challenge so that the verification step can assert the
-exact origin that initiated the ceremony.
+incoming `Origin` header (falling back to the request URL) and packages it with
+the generated challenge inside an HMAC-signed cookie. The cookie is verified
+and cleared during the `/verify` steps to ensure the challenge cannot be
+tampered with while still avoiding server-side storage.
 
 ### Storage
 
-`@passkeys-middleware/hono` ships with `InMemoryPasskeyStore` and
-`InMemoryChallengeStore` for quick experiments. For production use you should
-implement the `PasskeyStorage` and `PasskeyChallengeStore` interfaces with your
-own persistence layer and session handling.
+`@passkeys-middleware/hono` ships with `InMemoryPasskeyStore` for quick
+experiments. For production use you should implement the `PasskeyStorage`
+interface with your own persistence layer and session handling. Challenge data
+is automatically signed and stored client-side in cookies using a secret kept in
+`Deno.Kv`.
 
 ### Client bundle caching
 

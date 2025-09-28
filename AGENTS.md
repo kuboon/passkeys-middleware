@@ -38,3 +38,10 @@ polluting your shell environment.
 # run `deno fmt && deno lint` after your jobs
 
 If `deno lint` returns error, fix them.
+
+# Deno library imports
+
+- use standard library from jsr, not deno.land
+- do not import from `npm:` or `jsr:`, `https://` directly.
+  - run `deno add jsr:@std/foo` first, then you can write
+    `import { foo } from "@std/foo;`
