@@ -2,12 +2,16 @@ import type {
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
   CredentialDeviceType,
-  RegistrationResponseJSON,
   GenerateAuthenticationOptionsOpts,
   GenerateRegistrationOptionsOpts,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+  VerifiedAuthenticationResponse,
+  VerifiedRegistrationResponse,
   VerifyAuthenticationResponseOpts,
   VerifyRegistrationResponseOpts,
-} from '@simplewebauthn/server';
+} from "@simplewebauthn/server";
 
 export interface PasskeyUser {
   id: string;
@@ -40,10 +44,14 @@ export interface PasskeyStorage {
   deleteCredential?(credentialId: string): Promise<void>;
 }
 
-export type ChallengeType = 'registration' | 'authentication';
+export type ChallengeType = "registration" | "authentication";
 
 export interface PasskeyChallengeStore {
-  setChallenge(userId: string, type: ChallengeType, challenge: string): Promise<void>;
+  setChallenge(
+    userId: string,
+    type: ChallengeType,
+    challenge: string,
+  ): Promise<void>;
   getChallenge(userId: string, type: ChallengeType): Promise<string | null>;
   clearChallenge(userId: string, type: ChallengeType): Promise<void>;
 }
@@ -61,37 +69,58 @@ export interface RegistrationVerifyRequestBody {
 
 export interface AuthenticationOptionsRequestBody {
   username: string;
+  redirectTo?: string;
 }
 
 export interface AuthenticationVerifyRequestBody {
   username: string;
   credential: AuthenticationResponseJSON;
+  redirectTo?: string;
 }
 
 export type RegistrationOptionsOverrides = Partial<
   Omit<
     GenerateRegistrationOptionsOpts,
-    'rpID' | 'rpName' | 'userName' | 'userDisplayName' | 'excludeCredentials'
+    "rpID" | "rpName" | "userName" | "userDisplayName" | "excludeCredentials"
   >
 >;
 
 export type AuthenticationOptionsOverrides = Partial<
-  Omit<GenerateAuthenticationOptionsOpts, 'rpID' | 'allowCredentials'>
+  Omit<GenerateAuthenticationOptionsOpts, "rpID" | "allowCredentials">
 >;
 
 export type VerifyRegistrationOverrides = Partial<
   Omit<
     VerifyRegistrationResponseOpts,
-    'response' | 'expectedChallenge' | 'expectedOrigin' | 'expectedRPID'
+    "response" | "expectedChallenge" | "expectedOrigin" | "expectedRPID"
   >
 >;
 
 export type VerifyAuthenticationOverrides = Partial<
   Omit<
     VerifyAuthenticationResponseOpts,
-    'response' | 'expectedChallenge' | 'expectedOrigin' | 'expectedRPID' | 'credential'
+    | "response"
+    | "expectedChallenge"
+    | "expectedOrigin"
+    | "expectedRPID"
+    | "credential"
   >
 >;
+
+export interface PasskeyWebAuthnOverrides {
+  generateRegistrationOptions?: (
+    options: GenerateRegistrationOptionsOpts,
+  ) => Promise<PublicKeyCredentialCreationOptionsJSON>;
+  verifyRegistrationResponse?: (
+    options: VerifyRegistrationResponseOpts,
+  ) => Promise<VerifiedRegistrationResponse>;
+  generateAuthenticationOptions?: (
+    options: GenerateAuthenticationOptionsOpts,
+  ) => Promise<PublicKeyCredentialRequestOptionsJSON>;
+  verifyAuthenticationResponse?: (
+    options: VerifyAuthenticationResponseOpts,
+  ) => Promise<VerifiedAuthenticationResponse>;
+}
 
 export interface PasskeyMiddlewareOptions {
   rpID: string;
@@ -99,9 +128,18 @@ export interface PasskeyMiddlewareOptions {
   origin: string | string[];
   storage: PasskeyStorage;
   challengeStore?: PasskeyChallengeStore;
+  /** @deprecated Use `path` instead. */
   mountPath?: string;
+  path?: string;
   registrationOptions?: RegistrationOptionsOverrides;
   authenticationOptions?: AuthenticationOptionsOverrides;
   verifyRegistrationOptions?: VerifyRegistrationOverrides;
   verifyAuthenticationOptions?: VerifyAuthenticationOverrides;
+  webauthn?: PasskeyWebAuthnOverrides;
+}
+
+export interface PasskeySessionState {
+  isAuthenticated: boolean;
+  user: PasskeyUser | null;
+  redirectTo: string | null;
 }

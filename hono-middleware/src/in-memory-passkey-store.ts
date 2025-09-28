@@ -1,55 +1,66 @@
-import type { PasskeyCredential, PasskeyStorage, PasskeyUser } from './types.ts';
+import type {
+  PasskeyCredential,
+  PasskeyStorage,
+  PasskeyUser,
+} from "./types.ts";
 
 export class InMemoryPasskeyStore implements PasskeyStorage {
   private readonly users = new Map<string, PasskeyUser>();
   private readonly usersByUsername = new Map<string, string>();
   private readonly credentials = new Map<string, PasskeyCredential>();
 
-  async getUserByUsername(username: string): Promise<PasskeyUser | null> {
+  getUserByUsername(username: string): Promise<PasskeyUser | null> {
     const key = username.toLowerCase();
     const userId = this.usersByUsername.get(key);
-    return userId ? this.getUserById(userId) : null;
+    return userId ? this.getUserById(userId) : Promise.resolve(null);
   }
 
-  async getUserById(userId: string): Promise<PasskeyUser | null> {
-    return this.users.get(userId) ?? null;
+  getUserById(userId: string): Promise<PasskeyUser | null> {
+    return Promise.resolve(this.users.get(userId) ?? null);
   }
 
-  async createUser(user: PasskeyUser): Promise<void> {
+  createUser(user: PasskeyUser): Promise<void> {
     this.users.set(user.id, { ...user });
     this.usersByUsername.set(user.username.toLowerCase(), user.id);
+    return Promise.resolve();
   }
 
-  async updateUser(user: PasskeyUser): Promise<void> {
+  updateUser(user: PasskeyUser): Promise<void> {
     if (!this.users.has(user.id)) {
-      throw new Error('User does not exist');
+      throw new Error("User does not exist");
     }
     this.users.set(user.id, { ...user });
     this.usersByUsername.set(user.username.toLowerCase(), user.id);
+    return Promise.resolve();
   }
 
-  async getCredentialById(credentialId: string): Promise<PasskeyCredential | null> {
-    return this.credentials.get(credentialId) ?? null;
+  getCredentialById(credentialId: string): Promise<PasskeyCredential | null> {
+    return Promise.resolve(this.credentials.get(credentialId) ?? null);
   }
 
-  async getCredentialsByUserId(userId: string): Promise<PasskeyCredential[]> {
-    return Array.from(this.credentials.values()).filter(
-      (credential) => credential.userId === userId,
+  getCredentialsByUserId(userId: string): Promise<PasskeyCredential[]> {
+    return Promise.resolve(
+      Array.from(this.credentials.values()).filter(
+        (credential) => credential.userId === userId,
+      ),
     );
   }
 
-  async saveCredential(credential: PasskeyCredential): Promise<void> {
+  saveCredential(credential: PasskeyCredential): Promise<void> {
     this.credentials.set(credential.id, { ...credential });
+    return Promise.resolve();
   }
 
-  async updateCredential(credential: PasskeyCredential): Promise<void> {
+  updateCredential(credential: PasskeyCredential): Promise<void> {
     if (!this.credentials.has(credential.id)) {
-      throw new Error('Credential does not exist');
+      throw new Error("Credential does not exist");
     }
     this.credentials.set(credential.id, { ...credential });
+    return Promise.resolve();
   }
 
-  async deleteCredential(credentialId: string): Promise<void> {
+  deleteCredential(credentialId: string): Promise<void> {
     this.credentials.delete(credentialId);
+    return Promise.resolve();
   }
 }

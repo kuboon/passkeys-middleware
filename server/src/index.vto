@@ -286,6 +286,19 @@
         statusEl.dataset.status = type;
       };
 
+      const resolveRedirectTarget = () => {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const candidate = params.get('redirectTo');
+          if (candidate && candidate.startsWith('/')) {
+            return candidate;
+          }
+        } catch {
+          // ignore parsing errors
+        }
+        return window.location.pathname || '/';
+      };
+
       const fetchJson = async (input, init = {}) => {
         const response = await fetch(input, {
           headers: {
@@ -401,6 +414,8 @@
         }
       });
 
+      const redirectTarget = resolveRedirectTarget();
+
       authenticateForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const username = usernameInput.value.trim();
@@ -412,15 +427,24 @@
           log('認証オプションを取得しています…');
           const options = await fetchJson('/webauthn/authenticate/options', {
             method: 'POST',
-            body: JSON.stringify({ username }),
+            body: JSON.stringify({ username, redirectTo: redirectTarget }),
           });
           log('パスキー認証を開始します…');
           const assertionResponse = await webauthn.startAuthentication(options);
           log('認証結果を検証しています…');
-          await fetchJson('/webauthn/authenticate/verify', {
+          const verification = await fetchJson('/webauthn/authenticate/verify', {
             method: 'POST',
-            body: JSON.stringify({ username, credential: assertionResponse }),
+            body: JSON.stringify({
+              username,
+              credential: assertionResponse,
+              redirectTo: redirectTarget,
+            }),
           });
+          if (verification?.redirectTo) {
+            log('サインインに成功しました。リダイレクトします…', 'success');
+            window.location.assign(verification.redirectTo);
+            return;
+          }
           log('サインインに成功しました。', 'success');
         } catch (error) {
           log(`サインインに失敗しました: ${error.message}`, 'error');
@@ -438,4 +462,3 @@
     </script>
   </body>
 </html>
-

@@ -1,6 +1,7 @@
 # Agent Guide
 
-This repository relies on [mise](https://mise.jdx.dev/) to manage tool versions. The steps below show how to work with the configured runtimes.
+This repository relies on [mise](https://mise.jdx.dev/) to manage tool versions.
+The steps below show how to work with the configured runtimes.
 
 ## Deno
 
@@ -24,4 +25,5 @@ mise use python
 mise exec -- python path/to/script.py
 ```
 
-`mise exec` ensures the tools defined in `mise.toml` are on PATH without polluting your shell environment.
+`mise exec` ensures the tools defined in `mise.toml` are on PATH without
+polluting your shell environment.
