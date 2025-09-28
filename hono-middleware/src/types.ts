@@ -42,6 +42,7 @@ export interface PasskeyStorage {
   saveCredential(credential: PasskeyCredential): Promise<void>;
   updateCredential(credential: PasskeyCredential): Promise<void>;
   deleteCredential?(credentialId: string): Promise<void>;
+  deleteUser?(userId: string): Promise<void>;
 }
 
 export type ChallengeType = "registration" | "authentication";
