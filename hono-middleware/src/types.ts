@@ -64,13 +64,11 @@ export interface RegistrationVerifyRequestBody {
 
 export interface AuthenticationOptionsRequestBody {
   username: string;
-  redirectTo?: string;
 }
 
 export interface AuthenticationVerifyRequestBody {
   username: string;
   credential: AuthenticationResponseJSON;
-  redirectTo?: string;
 }
 
 export type RegistrationOptionsOverrides = Partial<
@@ -132,5 +130,4 @@ export interface PasskeyMiddlewareOptions {
 export interface PasskeySessionState {
   isAuthenticated: boolean;
   user: PasskeyUser | null;
-  redirectTo: string | null;
 }

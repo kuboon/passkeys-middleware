@@ -160,25 +160,7 @@ const respond = <T>(handler: () => Promise<T>) =>
 const unauthenticatedState = (): PasskeySessionState => ({
   isAuthenticated: false,
   user: null,
-  redirectTo: null,
 });
-
-const normalizeRedirectTarget = (value: unknown): string | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return null;
-  }
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
-    return null;
-  }
-  return trimmed.length > 1024 ? trimmed.slice(0, 1024) : trimmed;
-};
 
 const matchesMountPath = (path: string, mountPath: string) =>
   mountPath === "" || path === mountPath || path.startsWith(`${mountPath}/`);
@@ -226,7 +208,6 @@ export const createPasskeyMiddleware = (
     options.mountPath ?? DEFAULT_MOUNT_PATH,
   );
   const router = new Hono();
-  const pendingRedirects = new Map<string, string>();
 
   const loadSessionState = async (c: Context): Promise<PasskeySessionState> => {
     const sessionValue = getCookie(c, SESSION_COOKIE_NAME)?.trim();
@@ -238,7 +219,7 @@ export const createPasskeyMiddleware = (
       if (!user) {
         return unauthenticatedState();
       }
-      return { isAuthenticated: true, user, redirectTo: null };
+      return { isAuthenticated: true, user };
     } catch {
       return unauthenticatedState();
     }
@@ -460,13 +441,6 @@ export const createPasskeyMiddleware = (
         throw jsonError(404, "No registered credentials for user");
       }
 
-      const redirectTarget = normalizeRedirectTarget(body.redirectTo);
-      if (redirectTarget) {
-        pendingRedirects.set(user.id, redirectTarget);
-      } else {
-        pendingRedirects.delete(user.id);
-      }
-
       const optionsInput: GenerateAuthenticationOptionsOpts = {
         rpID,
         allowCredentials: credentials.map((credential) => ({
@@ -543,11 +517,6 @@ export const createPasskeyMiddleware = (
       await storage.updateCredential(storedCredential);
       clearSignedChallengeCookie(c);
 
-      const redirectFromStore = pendingRedirects.get(user.id);
-      pendingRedirects.delete(user.id);
-      const redirectTarget = normalizeRedirectTarget(body.redirectTo) ??
-        redirectFromStore ?? null;
-
       const secure = c.req.url.startsWith("https://");
       setCookie(c, SESSION_COOKIE_NAME, user.id, {
         ...cookieBaseOptions,
@@ -556,14 +525,12 @@ export const createPasskeyMiddleware = (
       const sessionState: PasskeySessionState = {
         isAuthenticated: true,
         user,
-        redirectTo: redirectTarget,
       };
       updateSessionState(c, sessionState);
 
       return c.json({
         verified: verification.verified,
         credential: storedCredential,
-        redirectTo: redirectTarget,
       });
     }));
 

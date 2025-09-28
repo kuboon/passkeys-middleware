@@ -63,9 +63,8 @@ The middleware exposes the following endpoints relative to the configured `path`
 
 All JSON endpoints return `4xx` errors when required parameters are missing or a
 credential/user cannot be resolved. After a successful authentication the
-middleware stores the session in `c.get('passkey')` and includes an optional
-`redirectTo` value in the `/authenticate/verify` response so clients can send
-users back to the protected URL they originally visited.
+middleware stores the session in `c.get('passkey')` so downstream handlers can
+inspect the authenticated user.
 
 The middleware derives the relying-party origin for each request from the
 incoming `Origin` header (falling back to the request URL) and packages it with

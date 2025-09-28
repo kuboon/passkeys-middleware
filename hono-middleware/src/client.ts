@@ -64,7 +64,6 @@ export interface RegisterParams {
 
 export interface AuthenticateParams {
   username: string;
-  redirectTo?: string;
 }
 
 export interface ListParams {
@@ -84,7 +83,6 @@ export interface RegisterResult {
 export interface AuthenticateResult {
   verified: boolean;
   credential: PasskeyCredential;
-  redirectTo: string | null;
 }
 
 const buildUrl = (mountPath: string, endpoint: string) =>
@@ -179,14 +177,13 @@ export const createClient = (options: CreateClientOptions = {}) => {
       params: AuthenticateParams,
     ): Promise<AuthenticateResult> {
       const username = ensureUsername(params.username);
-      const redirectTo = params.redirectTo?.trim();
 
       const optionsJSON = await fetchJson(
         fetchImpl,
         buildUrl(mountPath, "/authenticate/options"),
         {
           method: "POST",
-          body: JSON.stringify({ username, redirectTo }),
+          body: JSON.stringify({ username }),
         },
       );
 
@@ -202,7 +199,6 @@ export const createClient = (options: CreateClientOptions = {}) => {
           body: JSON.stringify({
             username,
             credential: assertionResponse,
-            redirectTo,
           }),
         },
       );

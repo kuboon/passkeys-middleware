@@ -305,18 +305,6 @@
         statusEl.dataset.status = type;
       };
 
-      const resolveRedirectTarget = () => {
-        try {
-          const params = new URLSearchParams(window.location.search);
-          const candidate = params.get("redirectTo");
-          if (candidate && candidate.startsWith("/")) {
-            return candidate;
-          }
-        } catch {
-          // ignore parsing errors
-        }
-        return window.location.pathname || "/";
-      };
       const renderCredentials = (credentials) => {
         credentialsList.innerHTML = "";
         for (const credential of credentials) {
@@ -428,8 +416,6 @@
         }
       });
 
-      const redirectTarget = resolveRedirectTarget();
-
       authenticateForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = usernameInput.value.trim();
@@ -439,18 +425,7 @@
         }
         try {
           log("パスキー認証を実行しています…");
-          const verification = await client.authenticate({
-            username,
-            redirectTo: redirectTarget,
-          });
-          if (verification?.redirectTo) {
-            log(
-              "サインインに成功しました。リダイレクトします…",
-              "success",
-            );
-            window.location.assign(verification.redirectTo);
-            return;
-          }
+          await client.authenticate({ username });
           log("サインインに成功しました。", "success");
         } catch (error) {
           log(`サインインに失敗しました: ${error.message}`, "error");
