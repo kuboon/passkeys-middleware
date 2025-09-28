@@ -39,7 +39,6 @@ app.use(
   createPasskeyMiddleware({
     rpID: "example.com",
     rpName: "Example Passkeys Demo",
-    origin: "https://example.com",
     storage,
     // Optional: customise the mount path (defaults to '/webauthn')
     path: "/webauthn",
@@ -67,6 +66,11 @@ credential/user cannot be resolved. After a successful authentication the
 middleware stores the session in `c.get('passkey')` and includes an optional
 `redirectTo` value in the `/authenticate/verify` response so clients can send
 users back to the protected URL they originally visited.
+
+The middleware derives the relying-party origin for each request from the
+incoming `Origin` header (falling back to the request URL) and persists it
+alongside the issued challenge so that the verification step can assert the
+exact origin that initiated the ceremony.
 
 ### Storage
 

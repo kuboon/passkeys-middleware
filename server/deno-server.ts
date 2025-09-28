@@ -1,5 +1,5 @@
-import { app } from "./app.ts"
+import { app } from "./app.ts";
 
-export default { fetch: app.fetch }
+export default { fetch: app.fetch };
 
-console.log("deno serve started.")
+console.log("deno serve started.");

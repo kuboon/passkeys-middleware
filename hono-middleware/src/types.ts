@@ -46,13 +46,21 @@ export interface PasskeyStorage {
 
 export type ChallengeType = "registration" | "authentication";
 
+export interface PasskeyStoredChallenge {
+  challenge: string;
+  origin?: string;
+}
+
 export interface PasskeyChallengeStore {
   setChallenge(
     userId: string,
     type: ChallengeType,
-    challenge: string,
+    value: PasskeyStoredChallenge,
   ): Promise<void>;
-  getChallenge(userId: string, type: ChallengeType): Promise<string | null>;
+  getChallenge(
+    userId: string,
+    type: ChallengeType,
+  ): Promise<PasskeyStoredChallenge | null>;
   clearChallenge(userId: string, type: ChallengeType): Promise<void>;
 }
 
@@ -125,7 +133,6 @@ export interface PasskeyWebAuthnOverrides {
 export interface PasskeyMiddlewareOptions {
   rpID: string;
   rpName: string;
-  origin: string | string[];
   storage: PasskeyStorage;
   challengeStore?: PasskeyChallengeStore;
   /** @deprecated Use `path` instead. */

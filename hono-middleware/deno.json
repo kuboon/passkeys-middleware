@@ -18,13 +18,9 @@
     "lint": "deno lint"
   },
   "fmt": {
-    "files": {
-      "include": ["mod.ts", "src/**/*.ts"]
-    }
+    "include": ["mod.ts", "src/**/*.ts"]
   },
   "lint": {
-    "files": {
-      "include": ["mod.ts", "src/**/*.ts"]
-    }
+    "include": ["mod.ts", "src/**/*.ts"]
   }
 }

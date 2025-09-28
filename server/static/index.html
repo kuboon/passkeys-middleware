@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
@@ -7,12 +7,22 @@
     <style>
       :root {
         color-scheme: light dark;
-        font-family: 'Inter', system-ui, sans-serif;
+        font-family: "Inter", system-ui, sans-serif;
       }
       body {
         margin: 0;
         padding: 0;
-        background: radial-gradient(circle at top, rgba(99, 102, 241, 0.18), transparent 55%), radial-gradient(circle at bottom, rgba(16, 185, 129, 0.18), transparent 55%);
+        background:
+          radial-gradient(
+            circle at top,
+            rgba(99, 102, 241, 0.18),
+            transparent 55%
+          ),
+          radial-gradient(
+          circle at bottom,
+          rgba(16, 185, 129, 0.18),
+          transparent 55%
+        );
         min-height: 100vh;
         display: flex;
         align-items: center;
@@ -77,7 +87,11 @@
         font-size: 1rem;
         font-weight: 600;
         cursor: pointer;
-        background: linear-gradient(120deg, rgba(99, 102, 241, 0.9), rgba(59, 130, 246, 0.9));
+        background: linear-gradient(
+          120deg,
+          rgba(99, 102, 241, 0.9),
+          rgba(59, 130, 246, 0.9)
+        );
         color: white;
         box-shadow: 0 8px 18px rgba(59, 130, 246, 0.35);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -152,11 +166,11 @@
         gap: 0.35rem;
       }
       .credential-meta span::before {
-        content: '•';
+        content: "•";
         color: rgba(99, 102, 241, 0.75);
       }
       .credential-meta span:first-child::before {
-        content: '';
+        content: "";
         width: 0;
       }
       .credentials button {
@@ -181,7 +195,8 @@
     <main>
       <h1>Passkeys Middleware Demo</h1>
       <p>
-        このデモは <code>@passkeys-middleware/hono</code> を使って作られた Hono アプリです。
+        このデモは <code>@passkeys-middleware/hono</code> を使って作られた Hono
+        アプリです。
         一つのアカウントに複数のパスキーを登録し、それぞれにニックネームを設定できます。
       </p>
 
@@ -192,11 +207,24 @@
           <legend>アカウント</legend>
           <label>
             ユーザー名
-            <input id="username" type="text" name="username" autocomplete="username" placeholder="yamada" required />
+            <input
+              id="username"
+              type="text"
+              name="username"
+              autocomplete="username"
+              placeholder="yamada"
+              required
+            />
           </label>
           <label>
             表示名
-            <input id="displayName" type="text" name="displayName" autocomplete="name" placeholder="山田 太郎" />
+            <input
+              id="displayName"
+              type="text"
+              name="displayName"
+              autocomplete="name"
+              placeholder="山田 太郎"
+            />
           </label>
         </fieldset>
 
@@ -204,11 +232,19 @@
           <legend>パスキー登録</legend>
           <label>
             ニックネーム
-            <input id="nickname" type="text" name="nickname" placeholder="仕事用 iPhone" required />
+            <input
+              id="nickname"
+              type="text"
+              name="nickname"
+              placeholder="仕事用 iPhone"
+              required
+            />
           </label>
           <div class="actions">
             <button type="submit">パスキーを登録</button>
-            <button type="button" id="refresh-credentials">登録済みの確認</button>
+            <button type="button" id="refresh-credentials">
+              登録済みの確認
+            </button>
           </div>
         </fieldset>
       </form>
@@ -233,14 +269,18 @@
 
     <script src="/webauthn/client.js" defer></script>
     <script type="module">
-      const statusEl = document.getElementById('status');
-      const registerForm = document.getElementById('register-form');
-      const authenticateForm = document.getElementById('authenticate-form');
-      const usernameInput = document.getElementById('username');
-      const displayNameInput = document.getElementById('displayName');
-      const nicknameInput = document.getElementById('nickname');
-      const credentialsList = document.getElementById('credentials');
-      const refreshButton = document.getElementById('refresh-credentials');
+      const statusEl = document.getElementById("status");
+      const registerForm = document.getElementById("register-form");
+      const authenticateForm = document.getElementById(
+        "authenticate-form",
+      );
+      const usernameInput = document.getElementById("username");
+      const displayNameInput = document.getElementById("displayName");
+      const nicknameInput = document.getElementById("nickname");
+      const credentialsList = document.getElementById("credentials");
+      const refreshButton = document.getElementById(
+        "refresh-credentials",
+      );
 
       const waitForWebAuthn = () =>
         new Promise((resolve, reject) => {
@@ -251,7 +291,11 @@
               return;
             }
             if (Date.now() - started > 5000) {
-              reject(new Error('SimpleWebAuthn クライアントの読み込みに失敗しました'));
+              reject(
+                new Error(
+                  "SimpleWebAuthn クライアントの読み込みに失敗しました",
+                ),
+              );
               return;
             }
             setTimeout(check, 50);
@@ -261,21 +305,21 @@
 
       const escapeHtml = (value) =>
         value
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;')
-          .replaceAll('"', '&quot;')
-          .replaceAll("'", '&#39;');
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
 
       const toDateTime = (timestamp) => {
         try {
           return new Date(timestamp).toLocaleString();
         } catch {
-          return '-';
+          return "-";
         }
       };
 
-      const log = (message, type = 'info') => {
+      const log = (message, type = "info") => {
         statusEl.textContent = message;
         statusEl.dataset.status = type;
       };
@@ -283,23 +327,23 @@
       const resolveRedirectTarget = () => {
         try {
           const params = new URLSearchParams(window.location.search);
-          const candidate = params.get('redirectTo');
-          if (candidate && candidate.startsWith('/')) {
+          const candidate = params.get("redirectTo");
+          if (candidate && candidate.startsWith("/")) {
             return candidate;
           }
         } catch {
           // ignore parsing errors
         }
-        return window.location.pathname || '/';
+        return window.location.pathname || "/";
       };
 
       const fetchJson = async (input, init = {}) => {
         const response = await fetch(input, {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             ...(init.headers ?? {}),
           },
-          credentials: 'include',
+          credentials: "include",
           ...init,
         });
         if (!response.ok) {
@@ -313,9 +357,9 @@
       };
 
       const renderCredentials = (credentials) => {
-        credentialsList.innerHTML = '';
+        credentialsList.innerHTML = "";
         for (const credential of credentials) {
-          const li = document.createElement('li');
+          const li = document.createElement("li");
           const encodedId = encodeURIComponent(credential.id);
           li.innerHTML = `
             <div class="credential-header">
@@ -324,30 +368,48 @@
             </div>
             <div class="credential-meta">
               <span>ID: ${escapeHtml(credential.id)}</span>
-              <span>更新: ${escapeHtml(toDateTime(credential.updatedAt))}</span>
-              <span>種類: ${escapeHtml(credential.deviceType ?? '不明')}</span>
-              <span>バックアップ: ${credential.backedUp ? 'はい' : 'いいえ'}</span>
+              <span>更新: ${
+            escapeHtml(toDateTime(credential.updatedAt))
+          }</span>
+              <span>種類: ${
+            escapeHtml(credential.deviceType ?? "不明")
+          }</span>
+              <span>バックアップ: ${
+            credential.backedUp ? "はい" : "いいえ"
+          }</span>
             </div>
           `;
-          li.querySelector('button')?.addEventListener('click', async (event) => {
-            const username = usernameInput.value.trim();
-            if (!username) {
-              log('ユーザー名を入力してください。', 'error');
-              return;
-            }
-            const target = event.currentTarget;
-            const credentialId = target?.dataset.credential ?? encodedId;
-            try {
-              await fetchJson(`/webauthn/credentials/${credentialId}?username=${encodeURIComponent(username)}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-              });
-              log(`パスキー「${credential.nickname}」を削除しました。`, 'success');
-              await updateCredentials();
-            } catch (error) {
-              log(`削除に失敗しました: ${error.message}`, 'error');
-            }
-          });
+          li.querySelector("button")?.addEventListener(
+            "click",
+            async (event) => {
+              const username = usernameInput.value.trim();
+              if (!username) {
+                log("ユーザー名を入力してください。", "error");
+                return;
+              }
+              const target = event.currentTarget;
+              const credentialId = target?.dataset.credential ??
+                encodedId;
+              try {
+                await fetchJson(
+                  `/webauthn/credentials/${credentialId}?username=${
+                    encodeURIComponent(username)
+                  }`,
+                  {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                  },
+                );
+                log(
+                  `パスキー「${credential.nickname}」を削除しました。`,
+                  "success",
+                );
+                await updateCredentials();
+              } catch (error) {
+                log(`削除に失敗しました: ${error.message}`, "error");
+              }
+            },
+          );
           credentialsList.appendChild(li);
         }
       };
@@ -355,102 +417,139 @@
       const updateCredentials = async () => {
         const username = usernameInput.value.trim();
         if (!username) {
-          credentialsList.innerHTML = '<li>ユーザー名を入力すると登録済みのパスキーが表示されます。</li>';
+          credentialsList.innerHTML =
+            "<li>ユーザー名を入力すると登録済みのパスキーが表示されます。</li>";
           return;
         }
         try {
-          const data = await fetchJson(`/webauthn/credentials?username=${encodeURIComponent(username)}`);
-          const credentials = Array.isArray(data?.credentials) ? data.credentials : [];
+          const data = await fetchJson(
+            `/webauthn/credentials?username=${
+              encodeURIComponent(username)
+            }`,
+          );
+          const credentials = Array.isArray(data?.credentials)
+            ? data.credentials
+            : [];
           if (!credentials.length) {
-            credentialsList.innerHTML = '<li>登録済みのパスキーはありません。</li>';
+            credentialsList.innerHTML =
+              "<li>登録済みのパスキーはありません。</li>";
             return;
           }
           renderCredentials(credentials);
         } catch (error) {
-          log(`登録済みパスキーの取得に失敗しました: ${error.message}`, 'error');
+          log(
+            `登録済みパスキーの取得に失敗しました: ${error.message}`,
+            "error",
+          );
         }
       };
 
       const webauthn = await waitForWebAuthn();
-      log('準備が整いました。');
+      log("準備が整いました。");
 
-      registerForm.addEventListener('submit', async (event) => {
+      registerForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = usernameInput.value.trim();
         const nickname = nicknameInput.value.trim();
         if (!username) {
-          log('ユーザー名を入力してください。', 'error');
+          log("ユーザー名を入力してください。", "error");
           return;
         }
         if (!nickname) {
-          log('ニックネームを入力してください。', 'error');
+          log("ニックネームを入力してください。", "error");
           return;
         }
         const displayName = displayNameInput.value.trim();
         try {
-          log('パスキー登録オプションを取得しています…');
-          const options = await fetchJson('/webauthn/register/options', {
-            method: 'POST',
-            body: JSON.stringify({ username, displayName }),
+          log("パスキー登録オプションを取得しています…");
+          const options = await fetchJson(
+            "/webauthn/register/options",
+            {
+              method: "POST",
+              body: JSON.stringify({ username, displayName }),
+            },
+          );
+          log("パスキー登録を開始します…");
+          const attestationResponse = await webauthn.startRegistration(
+            options,
+          );
+          log("登録結果を検証しています…");
+          await fetchJson("/webauthn/register/verify", {
+            method: "POST",
+            body: JSON.stringify({
+              username,
+              nickname,
+              credential: attestationResponse,
+            }),
           });
-          log('パスキー登録を開始します…');
-          const attestationResponse = await webauthn.startRegistration(options);
-          log('登録結果を検証しています…');
-          await fetchJson('/webauthn/register/verify', {
-            method: 'POST',
-            body: JSON.stringify({ username, nickname, credential: attestationResponse }),
-          });
-          log(`「${nickname}」としてパスキーを登録しました。`, 'success');
-          nicknameInput.value = '';
+          log(
+            `「${nickname}」としてパスキーを登録しました。`,
+            "success",
+          );
+          nicknameInput.value = "";
           await updateCredentials();
         } catch (error) {
-          log(`パスキー登録に失敗しました: ${error.message}`, 'error');
+          log(`パスキー登録に失敗しました: ${error.message}`, "error");
         }
       });
 
       const redirectTarget = resolveRedirectTarget();
 
-      authenticateForm.addEventListener('submit', async (event) => {
+      authenticateForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = usernameInput.value.trim();
         if (!username) {
-          log('ユーザー名を入力してください。', 'error');
+          log("ユーザー名を入力してください。", "error");
           return;
         }
         try {
-          log('認証オプションを取得しています…');
-          const options = await fetchJson('/webauthn/authenticate/options', {
-            method: 'POST',
-            body: JSON.stringify({ username, redirectTo: redirectTarget }),
-          });
-          log('パスキー認証を開始します…');
-          const assertionResponse = await webauthn.startAuthentication(options);
-          log('認証結果を検証しています…');
-          const verification = await fetchJson('/webauthn/authenticate/verify', {
-            method: 'POST',
-            body: JSON.stringify({
-              username,
-              credential: assertionResponse,
-              redirectTo: redirectTarget,
-            }),
-          });
+          log("認証オプションを取得しています…");
+          const options = await fetchJson(
+            "/webauthn/authenticate/options",
+            {
+              method: "POST",
+              body: JSON.stringify({
+                username,
+                redirectTo: redirectTarget,
+              }),
+            },
+          );
+          log("パスキー認証を開始します…");
+          const assertionResponse = await webauthn.startAuthentication(
+            options,
+          );
+          log("認証結果を検証しています…");
+          const verification = await fetchJson(
+            "/webauthn/authenticate/verify",
+            {
+              method: "POST",
+              body: JSON.stringify({
+                username,
+                credential: assertionResponse,
+                redirectTo: redirectTarget,
+              }),
+            },
+          );
           if (verification?.redirectTo) {
-            log('サインインに成功しました。リダイレクトします…', 'success');
+            log(
+              "サインインに成功しました。リダイレクトします…",
+              "success",
+            );
             window.location.assign(verification.redirectTo);
             return;
           }
-          log('サインインに成功しました。', 'success');
+          log("サインインに成功しました。", "success");
         } catch (error) {
-          log(`サインインに失敗しました: ${error.message}`, 'error');
+          log(`サインインに失敗しました: ${error.message}`, "error");
         }
       });
 
-      refreshButton.addEventListener('click', async () => {
+      refreshButton.addEventListener("click", async () => {
         await updateCredentials();
       });
 
-      usernameInput.addEventListener('change', updateCredentials);
-      usernameInput.addEventListener('blur', updateCredentials);
+      usernameInput.addEventListener("change", updateCredentials);
+      usernameInput.addEventListener("blur", updateCredentials);
 
       await updateCredentials();
     </script>

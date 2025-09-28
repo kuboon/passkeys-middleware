@@ -5,6 +5,6 @@
   },
   "tasks": {
     "serve": "deno serve --allow-env --allow-net --allow-read=. deno-server.ts",
-    "dev": "deno serve --allow-env --allow-net --allow-read=. --watch deno-server.ts" 
+    "dev": "deno serve --allow-env --allow-net --allow-read=. --watch deno-server.ts"
   }
 }

@@ -26,10 +26,7 @@ import {
   RegistrationVerifyRequestBody,
 } from "./types.ts";
 import { InMemoryChallengeStore } from "./in-memory-challenge-store.ts";
-import {
-  cryptoRandomUUIDFallback,
-  loadSimpleWebAuthnClient,
-} from "./utils.ts";
+import { cryptoRandomUUIDFallback, loadSimpleWebAuthnClient } from "./utils.ts";
 import { decodeBase64Url, encodeBase64Url } from "@std/encoding/base64url";
 
 declare module "hono" {
@@ -142,13 +139,24 @@ const getExecutionContext = (c: Context): ExecutionContext | undefined => {
   }
 };
 
+const getRequestOrigin = (c: Context): string => {
+  const headerOrigin = c.req.header("origin")?.trim();
+  if (headerOrigin) {
+    return headerOrigin;
+  }
+  try {
+    return new URL(c.req.url).origin;
+  } catch {
+    throw jsonError(400, "Unable to determine request origin");
+  }
+};
+
 export const createPasskeyMiddleware = (
   options: PasskeyMiddlewareOptions,
 ) => {
   const {
     rpID,
     rpName,
-    origin,
     storage,
     registrationOptions,
     authenticationOptions,
@@ -316,10 +324,14 @@ export const createPasskeyMiddleware = (
       const optionsResult = await webauthn.generateRegistrationOptions(
         optionsInput,
       );
+      const requestOrigin = getRequestOrigin(c);
       await challengeStore.setChallenge(
         user.id,
         "registration",
-        optionsResult.challenge,
+        {
+          challenge: optionsResult.challenge,
+          origin: requestOrigin,
+        },
       );
       return c.json(optionsResult);
     }));
@@ -337,18 +349,20 @@ export const createPasskeyMiddleware = (
         throw jsonError(400, "nickname is required");
       }
       const user = await ensureUserOrThrow(username);
-      const expectedChallenge = await challengeStore.getChallenge(
+      const storedChallenge = await challengeStore.getChallenge(
         user.id,
         "registration",
       );
-      if (!expectedChallenge) {
+      if (!storedChallenge) {
         throw jsonError(400, "No registration challenge for user");
       }
+      const expectedChallenge = storedChallenge.challenge;
+      const expectedOrigin = storedChallenge.origin ?? getRequestOrigin(c);
 
       const verification = await webauthn.verifyRegistrationResponse({
         response: body.credential,
         expectedChallenge,
-        expectedOrigin: origin,
+        expectedOrigin,
         expectedRPID: rpID,
         ...verifyRegistrationOptions,
       });
@@ -422,10 +436,14 @@ export const createPasskeyMiddleware = (
       const optionsResult = await webauthn.generateAuthenticationOptions(
         optionsInput,
       );
+      const requestOrigin = getRequestOrigin(c);
       await challengeStore.setChallenge(
         user.id,
         "authentication",
-        optionsResult.challenge,
+        {
+          challenge: optionsResult.challenge,
+          origin: requestOrigin,
+        },
       );
       return c.json(optionsResult);
     }));
@@ -439,13 +457,15 @@ export const createPasskeyMiddleware = (
         throw jsonError(400, "username is required");
       }
       const user = await ensureUserOrThrow(username);
-      const expectedChallenge = await challengeStore.getChallenge(
+      const storedChallenge = await challengeStore.getChallenge(
         user.id,
         "authentication",
       );
-      if (!expectedChallenge) {
+      if (!storedChallenge) {
         throw jsonError(400, "No authentication challenge for user");
       }
+      const expectedChallenge = storedChallenge.challenge;
+      const expectedOrigin = storedChallenge.origin ?? getRequestOrigin(c);
 
       const credentialId = body.credential.id;
       const storedCredential = await storage.getCredentialById(credentialId);
@@ -456,7 +476,7 @@ export const createPasskeyMiddleware = (
       const verification = await webauthn.verifyAuthenticationResponse({
         response: body.credential,
         expectedChallenge,
-        expectedOrigin: origin,
+        expectedOrigin,
         expectedRPID: rpID,
         credential: {
           id: storedCredential.id,
