@@ -27,11 +27,10 @@ import {
 } from "./types.ts";
 import { InMemoryChallengeStore } from "./in-memory-challenge-store.ts";
 import {
-  base64urlFromBuffer,
-  bufferFromBase64url,
   cryptoRandomUUIDFallback,
   loadSimpleWebAuthnClient,
 } from "./utils.ts";
+import { decodeBase64Url, encodeBase64Url } from "@std/encoding/base64url";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -361,7 +360,7 @@ export const createPasskeyMiddleware = (
 
       const registrationCredential = registrationInfo.credential;
       const credentialId = registrationCredential.id;
-      const credentialPublicKey = base64urlFromBuffer(
+      const credentialPublicKey = encodeBase64Url(
         registrationCredential.publicKey,
       );
 
@@ -461,7 +460,9 @@ export const createPasskeyMiddleware = (
         expectedRPID: rpID,
         credential: {
           id: storedCredential.id,
-          publicKey: bufferFromBase64url(storedCredential.publicKey),
+          publicKey: decodeBase64Url(storedCredential.publicKey) as Uint8Array<
+            ArrayBuffer
+          >,
           counter: storedCredential.counter,
           transports: storedCredential.transports,
         },

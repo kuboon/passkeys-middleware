@@ -1,6 +1,10 @@
 {
   "nodeModulesDir": "auto",
   "workspace": [
-    "server"
-  ]
+    "server",
+    "hono-middleware"
+  ],
+  "imports": {
+    "@std/encoding": "jsr:@std/encoding@^1.0.10"
+  }
 }

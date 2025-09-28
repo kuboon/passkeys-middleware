@@ -17,7 +17,7 @@ This repository hosts two packages that demonstrate how to integrate passkey
 
 ```
 /
-├─ hono-middleware/    # Source for the reusable middleware (npm + JSR ready)
+├─ hono-middleware/    # Source for the reusable middleware (Deno + JSR ready)
 └─ server/             # Demo server that consumes the router via app.route('/webauthn', ...)
 ```
 
@@ -39,10 +39,19 @@ variables:
 - `RP_ORIGIN`
 - `PORT`
 
-## Publishing
+## Middleware tasks
 
-- Publish the middleware to npm via `npm publish` from the `hono-middleware/`
-  directory when you need a new release.
-- Publish to [JSR](https://jsr.io/) with `npx jsr publish`.
+Run middleware checks and formatting through Deno:
+
+```bash
+cd hono-middleware
+mise exec -- deno task check
+mise exec -- deno fmt
+mise exec -- deno lint
+```
+
+To publish an update to [JSR](https://jsr.io/), run `npx jsr publish` from the
+`hono-middleware/` directory. npm publishing is no longer supported now that the
+package is configured exclusively for Deno.
 
 The demo server is intended for local development and should not be published.

@@ -3,10 +3,11 @@
   "specifiers": {
     "jsr:@std/assert@*": "1.0.14",
     "jsr:@std/assert@^1.0.13": "1.0.14",
+    "jsr:@std/encoding@*": "1.0.10",
+    "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/internal@^1.0.10": "1.0.10",
     "jsr:@std/testing@*": "1.0.15",
     "npm:@hono/node-server@*": "1.19.4_hono@4.9.8",
-    "npm:@simplewebauthn/browser@13": "13.2.0",
     "npm:@simplewebauthn/server@*": "13.2.1",
     "npm:@simplewebauthn/server@13": "13.2.1",
     "npm:@types/node@*": "24.2.0",
@@ -21,6 +22,9 @@
       "dependencies": [
         "jsr:@std/internal"
       ]
+    },
+    "@std/encoding@1.0.10": {
+      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     },
     "@std/internal@1.0.10": {
       "integrity": "e3be62ce42cab0e177c27698e5d9800122f67b766a0bea6ca4867886cbde8cf7"
@@ -165,9 +169,6 @@
         "tsyringe"
       ]
     },
-    "@simplewebauthn/browser@13.2.0": {
-      "integrity": "sha512-N3fuA1AAnTo5gCStYoIoiasPccC+xPLx2YU88Dv0GeAmPQTWHETlZQq5xZ0DgUq1H9loXMWQH5qqUjcI7BHJ1A=="
-    },
     "@simplewebauthn/server@13.2.1": {
       "integrity": "sha512-Inmfye5opZXe3HI0GaksqBnQiM7glcNySoG6DH1GgkO1Lh9dvuV4XSV9DK02DReUVX39HpcDob9nxHELjECoQw==",
       "dependencies": [
@@ -230,15 +231,16 @@
     }
   },
   "workspace": {
+    "dependencies": [
+      "jsr:@std/encoding@^1.0.10"
+    ],
     "members": {
       "hono-middleware": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@simplewebauthn/browser@13",
-            "npm:@simplewebauthn/server@13",
-            "npm:hono@^4.3.10"
-          ]
-        }
+        "dependencies": [
+          "jsr:@std/encoding@^1.0.10",
+          "npm:@simplewebauthn/server@13",
+          "npm:hono@^4.3.10"
+        ]
       },
       "server": {
         "dependencies": [

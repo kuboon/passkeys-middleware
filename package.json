@@ -4,12 +4,9 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "hono-middleware",
     "server"
   ],
   "scripts": {
-    "build": "npm run build -w hono-middleware",
-    "lint": "npm run lint -w hono-middleware --if-present",
     "test": "npm run test -w server --if-present"
   }
 }

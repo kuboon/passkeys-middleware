@@ -1,15 +1,18 @@
-# Agent Guide
+# If `deno` not found, use `mise`
 
-This repository relies on [mise](https://mise.jdx.dev/) to manage tool versions.
+Use [mise](https://mise.jdx.dev/) to manage tool versions.
 The steps below show how to work with the configured runtimes.
 
-## Deno
+## install mise
+`curl https://mise.run | sh`
 
-1. Ensure the configured tools are installed:
-   ```bash
-   mise install
-   ```
-2. Run any Deno command through mise so the pinned version is used. Examples:
+Ensure the configured tools are installed:
+```bash
+mise install
+```
+
+## Deno
+Run any Deno command through mise so the pinned version is used. Examples:
    ```bash
    mise exec -- deno check
    mise exec -- deno task dev
@@ -27,3 +30,6 @@ mise exec -- python path/to/script.py
 
 `mise exec` ensures the tools defined in `mise.toml` are on PATH without
 polluting your shell environment.
+
+# run `deno fmt && deno lint` after your jobs
+If `deno lint` returns error, fix them.
