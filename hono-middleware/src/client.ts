@@ -90,11 +90,11 @@ export interface AuthenticateResult {
 const buildUrl = (mountPath: string, endpoint: string) =>
   `${mountPath}${endpoint}`;
 
-const fetchJson = async (
+const fetchJson = async <T = unknown> (
   fetchImpl: FetchLike,
   input: string,
   init?: RequestInit,
-): Promise<unknown> => {
+): Promise<T | null> => {
   const headers = new Headers(init?.headers);
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -147,7 +147,7 @@ export const createClient = (options: CreateClientOptions = {}) => {
       const displayName = params.displayName?.trim();
       const nickname = params.nickname.trim();
 
-      const registrationOptions = await fetchJson(
+      const optionsJSON = await fetchJson(
         fetchImpl,
         buildUrl(mountPath, "/register/options"),
         {
@@ -155,10 +155,8 @@ export const createClient = (options: CreateClientOptions = {}) => {
           body: JSON.stringify({ username, displayName }),
         },
       );
-      console.log({registrationOptions})
-
       const attestationResponse = await startRegistration(
-        registrationOptions as Parameters<typeof startRegistration>[0],
+        { optionsJSON } as Parameters<typeof startRegistration>[0],
       );
 
       const verification = await fetchJson(
@@ -183,7 +181,7 @@ export const createClient = (options: CreateClientOptions = {}) => {
       const username = ensureUsername(params.username);
       const redirectTo = params.redirectTo?.trim();
 
-      const authenticationOptions = await fetchJson(
+      const optionsJSON = await fetchJson(
         fetchImpl,
         buildUrl(mountPath, "/authenticate/options"),
         {
@@ -193,7 +191,7 @@ export const createClient = (options: CreateClientOptions = {}) => {
       );
 
       const assertionResponse = await startAuthentication(
-        authenticationOptions as Parameters<typeof startAuthentication>[0],
+        { optionsJSON } as Parameters<typeof startAuthentication>[0],
       );
 
       const verification = await fetchJson(
