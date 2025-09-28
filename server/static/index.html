@@ -200,7 +200,7 @@
         一つのアカウントに複数のパスキーを登録し、それぞれにニックネームを設定できます。
       </p>
 
-      <div class="status" id="status" data-status="info">準備中…</div>
+      <div class="status" id="status" data-status="info">ready</div>
 
       <form id="register-form">
         <fieldset>
@@ -268,7 +268,7 @@
     </main>
 
     <script type="module">
-      import * as webauthn from "/webauthn/client.js"
+      import { createClient } from "/webauthn/client.js"
       const statusEl = document.getElementById("status");
       const registerForm = document.getElementById("register-form");
       const authenticateForm = document.getElementById(
@@ -281,6 +281,7 @@
       const refreshButton = document.getElementById(
         "refresh-credentials",
       );
+      const client = createClient();
 
       const escapeHtml = (value) =>
         value
@@ -315,35 +316,14 @@
         }
         return window.location.pathname || "/";
       };
-
-      const fetchJson = async (input, init = {}) => {
-        const response = await fetch(input, {
-          headers: {
-            "Content-Type": "application/json",
-            ...(init.headers ?? {}),
-          },
-          credentials: "include",
-          ...init,
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || response.statusText);
-        }
-        if (response.status === 204) {
-          return null;
-        }
-        return response.json();
-      };
-
       const renderCredentials = (credentials) => {
         credentialsList.innerHTML = "";
         for (const credential of credentials) {
           const li = document.createElement("li");
-          const encodedId = encodeURIComponent(credential.id);
           li.innerHTML = `
             <div class="credential-header">
               <strong>${escapeHtml(credential.nickname)}</strong>
-              <button type="button" data-credential="${encodedId}">削除</button>
+              <button type="button" data-credential=""></button>
             </div>
             <div class="credential-meta">
               <span>ID: ${escapeHtml(credential.id)}</span>
@@ -358,7 +338,12 @@
           }</span>
             </div>
           `;
-          li.querySelector("button")?.addEventListener(
+          const deleteButton = li.querySelector("button");
+          if (deleteButton) {
+            deleteButton.dataset.credential = credential.id;
+            deleteButton.textContent = "削除";
+          }
+          deleteButton?.addEventListener(
             "click",
             async (event) => {
               const username = usernameInput.value.trim();
@@ -368,17 +353,12 @@
               }
               const target = event.currentTarget;
               const credentialId = target?.dataset.credential ??
-                encodedId;
+                credential.id;
               try {
-                await fetchJson(
-                  `/webauthn/credentials/${credentialId}?username=${
-                    encodeURIComponent(username)
-                  }`,
-                  {
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                  },
-                );
+                await client.delete({
+                  username,
+                  credentialId,
+                });
                 log(
                   `パスキー「${credential.nickname}」を削除しました。`,
                   "success",
@@ -401,14 +381,7 @@
           return;
         }
         try {
-          const data = await fetchJson(
-            `/webauthn/credentials?username=${
-              encodeURIComponent(username)
-            }`,
-          );
-          const credentials = Array.isArray(data?.credentials)
-            ? data.credentials
-            : [];
+          const credentials = await client.list({ username });
           if (!credentials.length) {
             credentialsList.innerHTML =
               "<li>登録済みのパスキーはありません。</li>";
@@ -437,26 +410,11 @@
         }
         const displayName = displayNameInput.value.trim();
         try {
-          log("パスキー登録オプションを取得しています…");
-          const options = await fetchJson(
-            "/webauthn/register/options",
-            {
-              method: "POST",
-              body: JSON.stringify({ username, displayName }),
-            },
-          );
-          log("パスキー登録を開始します…");
-          const attestationResponse = await webauthn.startRegistration(
-            options,
-          );
-          log("登録結果を検証しています…");
-          await fetchJson("/webauthn/register/verify", {
-            method: "POST",
-            body: JSON.stringify({
-              username,
-              nickname,
-              credential: attestationResponse,
-            }),
+          log("パスキー登録を実行しています…");
+          await client.register({
+            username,
+            displayName: displayName || undefined,
+            nickname,
           });
           log(
             `「${nickname}」としてパスキーを登録しました。`,
@@ -479,33 +437,11 @@
           return;
         }
         try {
-          log("認証オプションを取得しています…");
-          const options = await fetchJson(
-            "/webauthn/authenticate/options",
-            {
-              method: "POST",
-              body: JSON.stringify({
-                username,
-                redirectTo: redirectTarget,
-              }),
-            },
-          );
-          log("パスキー認証を開始します…");
-          const assertionResponse = await webauthn.startAuthentication(
-            options,
-          );
-          log("認証結果を検証しています…");
-          const verification = await fetchJson(
-            "/webauthn/authenticate/verify",
-            {
-              method: "POST",
-              body: JSON.stringify({
-                username,
-                credential: assertionResponse,
-                redirectTo: redirectTarget,
-              }),
-            },
-          );
+          log("パスキー認証を実行しています…");
+          const verification = await client.authenticate({
+            username,
+            redirectTo: redirectTarget,
+          });
           if (verification?.redirectTo) {
             log(
               "サインインに成功しました。リダイレクトします…",

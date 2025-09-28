@@ -57,8 +57,8 @@ const loadClientBundle = () => {
       // outputDir: "dist",
       platform: "browser",
       minify: true,
-      write: false
-    }).then(x=>x.outputFiles![0].text());
+      write: false,
+    }).then((x) => x.outputFiles![0].text());
   }
   return clientBundlePromise;
 };
