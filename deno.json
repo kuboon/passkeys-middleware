@@ -1,0 +1,7 @@
+{
+  "nodeModulesDir": "auto",
+  "workspace": [
+    "server",
+    "hono-middleware"
+  ]
+}

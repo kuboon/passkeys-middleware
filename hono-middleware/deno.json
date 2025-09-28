@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.ns", "dom", "dom.iterable"]
+  },
+  "imports": {
+    "hono": "npm:hono@^4.3.10",
+    "hono/cookie": "npm:hono@^4.3.10/cookie",
+    "hono/factory": "npm:hono@^4.3.10/factory",
+    "hono/http-exception": "npm:hono@^4.3.10/http-exception",
+    "hono/utils/http-status": "npm:hono@^4.3.10/utils/http-status",
+    "@simplewebauthn/server": "npm:@simplewebauthn/server@^13.0.0",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10"
+  },
+  "tasks": {
+    "check": "deno check mod.ts src/index.ts src/utils.ts src/types.ts src/in-memory-challenge-store.ts src/in-memory-passkey-store.ts",
+    "fmt": "deno fmt",
+    "lint": "deno lint"
+  },
+  "fmt": {
+    "files": {
+      "include": ["mod.ts", "src/**/*.ts"]
+    }
+  },
+  "lint": {
+    "files": {
+      "include": ["mod.ts", "src/**/*.ts"]
+    }
+  }
+}
