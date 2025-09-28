@@ -7,9 +7,6 @@ import {
   InMemoryChallengeStore,
   InMemoryPasskeyStore,
 } from "@passkeys-middleware/hono";
-import createEnv from "ventojs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import process from "node:process";
 
 const rpID = process.env.RP_ID ?? "localhost";
@@ -33,12 +30,9 @@ app.use(
   }),
 );
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const env = createEnv({ includes: __dirname, autoescape: true });
-
 app.get("/", async (c) => {
-  const result = await env.run("index.vto", { rpID, origin });
-  return c.html(result.content);
+  const html = await fetch(import.meta.resolve("./static/index.html")).then(x=>x.text())
+  return c.html(html);
 });
 
 app.onError((err, c) => {
@@ -49,6 +43,4 @@ app.onError((err, c) => {
   return c.json({ message: "Internal Server Error" }, 500);
 });
 
-Deno.serve({ port }, app.fetch);
-
-console.log(`Passkeys demo listening on http://localhost:${port}`);
+export { app }
