@@ -135,9 +135,7 @@ export interface PasskeyMiddlewareOptions {
   rpName: string;
   storage: PasskeyStorage;
   challengeStore?: PasskeyChallengeStore;
-  /** @deprecated Use `path` instead. */
   mountPath?: string;
-  path?: string;
   registrationOptions?: RegistrationOptionsOverrides;
   authenticationOptions?: AuthenticationOptionsOverrides;
   verifyRegistrationOptions?: VerifyRegistrationOverrides;

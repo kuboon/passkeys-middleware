@@ -180,7 +180,7 @@ export const createPasskeyMiddleware = (
     ...options.webauthn,
   };
   const mountPath = normalizeMountPath(
-    options.path ?? options.mountPath ?? DEFAULT_MOUNT_PATH,
+    options.mountPath ?? DEFAULT_MOUNT_PATH,
   );
   const router = new Hono();
   const pendingRedirects = new Map<string, string>();
