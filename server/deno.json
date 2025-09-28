@@ -4,7 +4,7 @@
     "@passkeys-middleware/hono": "../hono-middleware/mod.ts"
   },
   "tasks": {
-    "serve": "deno serve --allow-env --allow-net --allow-read=. deno-server.ts",
-    "dev": "deno serve --allow-env --allow-net --allow-read=. --watch deno-server.ts"
+    "serve": "deno serve --allow-env --allow-net --allow-read=.. deno-server.ts",
+    "dev": "deno serve --allow-env --allow-net --allow-read=.. --watch deno-server.ts"
   }
 }

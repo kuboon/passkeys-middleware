@@ -35,9 +35,9 @@ mise exec -- python path/to/script.py
 `mise exec` ensures the tools defined in `mise.toml` are on PATH without
 polluting your shell environment.
 
-# run `deno fmt && deno lint` after your jobs
+# run `deno fmt && deno lint && deno test -P` after your jobs
 
-If `deno lint` returns error, fix them.
+If returns error, fix them.
 
 # Deno library imports
 

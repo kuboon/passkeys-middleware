@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Passkey Control Center</title>
+    <title>ID central</title>
     <link rel="icon" href="data:image/png;base64,iVBORw0KGgo=" />
     <style>
       :root {
@@ -357,46 +357,41 @@
     <main class="page">
       <header class="page-header">
         <div class="brand">
-          <p class="eyebrow">Account security</p>
-          <h1>Security Key Management</h1>
-          <p class="lead">
-            Manage your profile details and registered passkeys without leaving
-            the app.
-          </p>
+          <h1 id="brand"></h1>
         </div>
         <div class="status" id="status" data-status="info" role="status">
-          Ready.
+          準備が整いました。
         </div>
       </header>
 
       <section id="guest-view" class="panel">
         <div class="card">
-          <h2>Sign in with a passkey</h2>
+          <h2>パスキーでサインイン</h2>
           <form id="guest-form" class="stack" autocomplete="off">
             <label class="field" for="guest-username">
-              <span>Username</span>
+              <span>ユーザー名</span>
               <input
                 id="guest-username"
                 type="text"
                 name="username"
                 autocomplete="username webauthn"
-                placeholder="your-name"
+                placeholder="例: your-name"
                 required
               />
             </label>
             <div class="button-row align-start">
-              <button type="submit" class="primary">Sign in</button>
+              <button type="submit" class="primary">サインイン</button>
               <button
                 type="button"
                 id="open-create-account"
                 class="secondary"
               >
-                Create account
+                アカウントを作成
               </button>
             </div>
           </form>
           <p id="conditional-status" class="hint" data-state="pending">
-            Checking for passkey autofill support…
+            パスキーの自動入力に対応しているか確認しています…
           </p>
         </div>
       </section>
@@ -405,23 +400,23 @@
         <div class="card">
           <header class="section-header">
             <div>
-              <h2>Profile details</h2>
+              <h2>プロフィール情報</h2>
               <p class="hint" id="account-summary">
-                Signed in user details appear here.
+                サインイン中のユーザー情報が表示されます。
               </p>
             </div>
             <div class="section-actions">
               <button type="button" id="logout" class="secondary">
-                Log out
+                ログアウト
               </button>
               <button type="button" id="delete-account" class="danger">
-                Delete account
+                アカウントを削除
               </button>
             </div>
           </header>
           <form id="profile-form" class="stack">
             <label class="field" for="account-username">
-              <span>Username</span>
+              <span>ユーザー名</span>
               <input
                 id="account-username"
                 type="text"
@@ -431,7 +426,7 @@
               />
             </label>
             <label class="field" for="account-display-name">
-              <span>Display name</span>
+              <span>表示名</span>
               <input
                 id="account-display-name"
                 type="text"
@@ -440,7 +435,7 @@
               />
             </label>
             <div class="button-row align-start">
-              <button type="submit" class="primary">Save changes</button>
+              <button type="submit" class="primary">変更を保存</button>
             </div>
           </form>
         </div>
@@ -448,9 +443,9 @@
         <div class="card">
           <header class="section-header">
             <div>
-              <h2>Passkeys</h2>
+              <h2>パスキー</h2>
               <p class="hint">
-                Register additional devices and revoke keys you no longer use.
+                新しいデバイスを登録したり、不要な鍵を削除できます。
               </p>
             </div>
             <div class="section-actions">
@@ -459,24 +454,24 @@
                 id="add-passkey"
                 class="secondary accent"
               >
-                Add another key
+                別の鍵を追加
               </button>
             </div>
           </header>
           <ul id="credential-list" class="credentials">
-            <li class="empty">Passkeys will appear here after you sign in.</li>
+            <li class="empty">サインインするとパスキーが表示されます。</li>
           </ul>
         </div>
       </section>
 
       <dialog id="passkey-dialog">
         <form id="passkey-form" class="dialog-form">
-          <h2 id="passkey-dialog-title">Add a passkey</h2>
+          <h2 id="passkey-dialog-title">パスキーを追加</h2>
           <p id="passkey-dialog-description" class="hint">
-            Name the key so you can recognise it later.
+            後から分かるように鍵に名前を付けてください。
           </p>
           <label class="field" id="passkey-display-name-field">
-            <span>Display name</span>
+            <span>表示名</span>
             <input
               id="passkey-display-name"
               type="text"
@@ -485,21 +480,21 @@
             />
           </label>
           <label class="field" for="passkey-nickname">
-            <span>Passkey nickname</span>
+            <span>パスキーのニックネーム</span>
             <input
               id="passkey-nickname"
               type="text"
               name="nickname"
-              placeholder="Work laptop"
+              placeholder="仕事用ノートPC"
               required
             />
           </label>
           <div class="button-row align-end">
             <button type="button" id="cancel-passkey-dialog" class="secondary">
-              Cancel
+              キャンセル
             </button>
             <button type="submit" id="submit-passkey-dialog" class="primary">
-              Continue
+              続行
             </button>
           </div>
         </form>
@@ -621,15 +616,14 @@
         if (!state.account) {
           const li = document.createElement("li");
           li.className = "empty";
-          li.textContent =
-            "Passkeys will appear here after you sign in.";
+          li.textContent = "サインインするとパスキーが表示されます。";
           credentialsList.append(li);
           return;
         }
         if (!credentials.length) {
           const li = document.createElement("li");
           li.className = "empty";
-          li.textContent = "No passkeys registered yet.";
+          li.textContent = "まだパスキーが登録されていません。";
           credentialsList.append(li);
           return;
         }
@@ -639,14 +633,15 @@
           const header = document.createElement("div");
           header.className = "credential-header";
           const title = document.createElement("strong");
-          title.textContent = credential.nickname || "Unnamed device";
+          title.textContent = credential.nickname ||
+            "名前のないデバイス";
           header.append(title);
 
           const deleteButton = document.createElement("button");
           deleteButton.type = "button";
           deleteButton.className = "danger outline";
           deleteButton.dataset.credentialId = credential.id;
-          deleteButton.textContent = "Remove";
+          deleteButton.textContent = "削除";
           header.append(deleteButton);
           li.append(header);
 
@@ -654,10 +649,10 @@
           meta.className = "credential-meta";
 
           const rows = [
-            ["Device", credential.deviceType ?? "Unknown"],
-            ["Backed up", credential.backedUp ? "Yes" : "No"],
-            ["Added", formatDate(credential.createdAt)],
-            ["Updated", formatDate(credential.updatedAt)],
+            ["デバイス", credential.deviceType ?? "不明"],
+            ["バックアップ", credential.backedUp ? "はい" : "いいえ"],
+            ["追加日", formatDate(credential.createdAt)],
+            ["更新日", formatDate(credential.updatedAt)],
             [
               "ID",
               credential.id.length > 14
@@ -688,7 +683,7 @@
         const account = state.account;
         if (!account) {
           accountSummary.textContent =
-            "Sign in to manage your account.";
+            "サインインしてアカウントを管理しましょう。";
           accountUsernameInput.value = "";
           accountDisplayNameInput.value = "";
           renderCredentials([]);
@@ -755,13 +750,13 @@
         } catch {
           // ignore
         }
-        return `Request failed with status ${response.status}`;
+        return `リクエストがステータス${response.status}で失敗しました`;
       };
 
       const fetchAccount = async (username) => {
         const normalized = username.trim();
         if (!normalized) {
-          throw new Error("Username is required.");
+          throw new Error("ユーザー名は必須です。");
         }
         const response = await fetch(
           `/webauthn/credentials?username=${
@@ -771,13 +766,13 @@
         );
         if (!response.ok) {
           if (response.status === 404) {
-            throw new Error("Account not found.");
+            throw new Error("アカウントが見つかりません。");
           }
           throw new Error(await extractErrorMessage(response));
         }
         const data = await response.json();
         if (!data || typeof data !== "object" || !data.user) {
-          throw new Error("Account not found.");
+          throw new Error("アカウントが見つかりません。");
         }
         const credentials = Array.isArray(data.credentials)
           ? data.credentials
@@ -801,7 +796,7 @@
           await loadAccount(username);
         } catch (error) {
           setStatus(
-            error.message ?? "Unable to refresh account.",
+            error.message ?? "アカウントを更新できません。",
             "error",
           );
         }
@@ -812,10 +807,10 @@
       };
 
       const authenticateWithPasskey = async (username) => {
-        setStatus("Waiting for your passkey…");
+        setStatus("パスキーの操作を待機しています…");
         await client.authenticate({ username });
         await loadAccount(username);
-        setStatus("Signed in successfully.", "success");
+        setStatus("サインインに成功しました。", "success");
       };
 
       const checkConditionalMediation = async () => {
@@ -825,7 +820,7 @@
             "function"
         ) {
           conditionalStatus.textContent =
-            "Your browser does not support passkey autofill yet.";
+            "ご利用のブラウザーはまだパスキーの自動入力に対応していません。";
           conditionalStatus.dataset.state = "unsupported";
           return false;
         }
@@ -834,8 +829,8 @@
             .isConditionalMediationAvailable();
           state.conditionalAvailable = available;
           conditionalStatus.textContent = available
-            ? "Passkey autofill is available in this browser."
-            : "Passkey autofill is disabled. You can still sign in manually.";
+            ? "このブラウザーではパスキーの自動入力が利用できます。"
+            : "パスキーの自動入力は無効です。手動でサインインできます。";
           conditionalStatus.dataset.state = available
             ? "available"
             : "absent";
@@ -846,7 +841,7 @@
             error,
           );
           conditionalStatus.textContent =
-            "Unable to determine passkey autofill support.";
+            "パスキーの自動入力に対応しているか判定できませんでした。";
           conditionalStatus.dataset.state = "error";
           return false;
         }
@@ -859,7 +854,7 @@
         }
         const username = guestUsernameInput.value.trim();
         if (!username) {
-          setStatus("Enter your username first.", "error");
+          setStatus("先にユーザー名を入力してください。", "error");
           guestUsernameInput.focus();
           return;
         }
@@ -869,8 +864,8 @@
         } catch (error) {
           setStatus(
             error?.message
-              ? `Sign-in failed: ${error.message}`
-              : "Sign-in was cancelled or failed.",
+              ? `サインインに失敗しました: ${error.message}`
+              : "サインインがキャンセルされたか失敗しました。",
             "error",
           );
         } finally {
@@ -885,19 +880,19 @@
       const openPasskeyDialog = (mode) => {
         passkeyDialog.dataset.mode = mode;
         if (mode === "create") {
-          passkeyDialogTitle.textContent = "Create your account";
+          passkeyDialogTitle.textContent = "アカウントを作成";
           passkeyDialogDescription.textContent =
-            "We will register the first passkey for this username.";
+            "このユーザー名に最初のパスキーを登録します。";
           passkeyDisplayNameField.hidden = false;
-          passkeyDialogSubmit.textContent = "Create account";
+          passkeyDialogSubmit.textContent = "アカウントを作成";
           passkeyDisplayNameInput.value = guestUsernameInput.value
             .trim();
         } else {
-          passkeyDialogTitle.textContent = "Add another passkey";
+          passkeyDialogTitle.textContent = "別のパスキーを追加";
           passkeyDialogDescription.textContent =
-            "Name the key so you can recognise it later.";
+            "後から分かるように鍵に名前を付けてください。";
           passkeyDisplayNameField.hidden = true;
-          passkeyDialogSubmit.textContent = "Save passkey";
+          passkeyDialogSubmit.textContent = "パスキーを保存";
           if (state.account?.user?.displayName) {
             passkeyDisplayNameInput.value =
               state.account.user.displayName;
@@ -916,7 +911,10 @@
 
       createAccountButton.addEventListener("click", () => {
         if (!guestUsernameInput.value.trim()) {
-          setStatus("Enter a username to create an account.", "error");
+          setStatus(
+            "アカウントを作成するにはユーザー名を入力してください。",
+            "error",
+          );
           guestUsernameInput.focus();
           return;
         }
@@ -925,7 +923,10 @@
 
       addPasskeyButton.addEventListener("click", () => {
         if (!state.account) {
-          setStatus("Sign in before adding a new passkey.", "error");
+          setStatus(
+            "新しいパスキーを追加する前にサインインしてください。",
+            "error",
+          );
           return;
         }
         openPasskeyDialog("add");
@@ -946,7 +947,10 @@
         }
         const nickname = passkeyNicknameInput.value.trim();
         if (!nickname) {
-          setStatus("Enter a nickname for your passkey.", "error");
+          setStatus(
+            "パスキーのニックネームを入力してください。",
+            "error",
+          );
           passkeyNicknameInput.focus();
           return;
         }
@@ -957,40 +961,67 @@
           if (mode === "create") {
             const username = guestUsernameInput.value.trim();
             if (!username) {
-              throw new Error("Username is required.");
+              throw new Error("ユーザー名は必須です。");
             }
             const displayName = passkeyDisplayNameInput.value.trim();
-            setStatus("Waiting for your security key…");
+            setStatus("セキュリティキーの操作を待機しています…");
             await client.register({
               username,
               displayName: displayName || undefined,
               nickname,
             });
-            setStatus(`Passkey "${nickname}" registered.`, "success");
+            setStatus(
+              `パスキー「${nickname}」を登録しました。`,
+              "success",
+            );
             passkeyDialog.close();
             await authenticateWithPasskey(username);
           } else {
             if (!state.account) {
-              throw new Error("No signed-in account.");
+              throw new Error("サインイン中のアカウントがありません。");
             }
             const username = state.account.user.username;
-            setStatus("Waiting for your security key…");
+            setStatus("セキュリティキーの操作を待機しています…");
             await client.register({
               username,
               displayName: state.account.user.displayName || undefined,
               nickname,
             });
-            setStatus(`Passkey "${nickname}" added.`, "success");
+            setStatus(
+              `パスキー「${nickname}」を追加しました。`,
+              "success",
+            );
             passkeyDialog.close();
             await refreshAccount();
           }
         } catch (error) {
-          setStatus(
-            error?.message
-              ? `Passkey setup failed: ${error.message}`
-              : "Passkey setup failed.",
-            "error",
-          );
+          let message = "パスキーの設定に失敗しました。";
+          let statusType = "error";
+          if (error instanceof DOMException) {
+            switch (error.name) {
+              case "NotAllowedError":
+                message =
+                  "このデバイスには既にこのアカウントのパスキーがあります。別の認証器を使用するか既存の鍵を削除してください。";
+                break;
+              case "InvalidStateError":
+                message =
+                  "この認証器は既にこのアカウントに登録されているため要求を拒否しました。";
+                break;
+              case "AbortError":
+                message = "パスキーの設定がキャンセルされました。";
+                statusType = "info";
+                break;
+              default:
+                if (error.message?.trim()) {
+                  message =
+                    `パスキーの設定に失敗しました: ${error.message}`;
+                }
+                break;
+            }
+          } else if (error instanceof Error && error.message.trim()) {
+            message = `パスキーの設定に失敗しました: ${error.message}`;
+          }
+          setStatus(message, statusType);
         } finally {
           passkeyDialogSubmit.disabled = false;
           passkeyForm.dataset.loading = "false";
@@ -1007,7 +1038,10 @@
           return;
         }
         if (!state.account) {
-          setStatus("Sign in before managing passkeys.", "error");
+          setStatus(
+            "パスキーを管理する前にサインインしてください。",
+            "error",
+          );
           return;
         }
         const credentialId = button.dataset.credentialId;
@@ -1020,18 +1054,18 @@
         button.dataset.loading = "true";
         button.disabled = true;
         try {
-          setStatus("Removing passkey…");
+          setStatus("パスキーを削除しています…");
           await client.delete({
             username: state.account.user.username,
             credentialId,
           });
-          setStatus("Passkey removed.", "success");
+          setStatus("パスキーを削除しました。", "success");
           await refreshAccount();
         } catch (error) {
           setStatus(
             error?.message
-              ? `Failed to remove passkey: ${error.message}`
-              : "Failed to remove passkey.",
+              ? `パスキーの削除に失敗しました: ${error.message}`
+              : "パスキーの削除に失敗しました。",
             "error",
           );
         } finally {
@@ -1043,7 +1077,10 @@
       profileForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         if (!state.account) {
-          setStatus("Sign in before updating your profile.", "error");
+          setStatus(
+            "プロフィールを更新する前にサインインしてください。",
+            "error",
+          );
           return;
         }
         if (profileForm.dataset.loading === "true") {
@@ -1059,7 +1096,7 @@
           payload.displayName = displayName;
         }
         if (Object.keys(payload).length === 0) {
-          setStatus("No changes to save.", "info");
+          setStatus("保存する変更がありません。", "info");
           return;
         }
         profileForm.dataset.loading = "true";
@@ -1076,7 +1113,7 @@
           }
           const data = await response.json();
           if (!data || typeof data !== "object" || !data.user) {
-            throw new Error("Unexpected response from server.");
+            throw new Error("サーバーから予期しない応答がありました。");
           }
           state.account = {
             user: data.user,
@@ -1084,12 +1121,12 @@
           };
           storeUsername(data.user.username);
           renderAccount();
-          setStatus("Profile updated.", "success");
+          setStatus("プロフィールを更新しました。", "success");
         } catch (error) {
           setStatus(
             error?.message
-              ? `Failed to save profile: ${error.message}`
-              : "Failed to save profile.",
+              ? `プロフィールの保存に失敗しました: ${error.message}`
+              : "プロフィールの保存に失敗しました。",
             "error",
           );
         } finally {
@@ -1113,12 +1150,12 @@
             throw new Error(await extractErrorMessage(response));
           }
           clearAccount();
-          setStatus("Signed out.", "info");
+          setStatus("サインアウトしました。", "info");
         } catch (error) {
           setStatus(
             error?.message
-              ? `Failed to sign out: ${error.message}`
-              : "Failed to sign out.",
+              ? `サインアウトに失敗しました: ${error.message}`
+              : "サインアウトに失敗しました。",
             "error",
           );
         } finally {
@@ -1129,14 +1166,17 @@
 
       deleteAccountButton.addEventListener("click", async () => {
         if (!state.account) {
-          setStatus("Sign in before deleting your account.", "error");
+          setStatus(
+            "アカウントを削除する前にサインインしてください。",
+            "error",
+          );
           return;
         }
         if (deleteAccountButton.dataset.loading === "true") {
           return;
         }
         const confirmed = window.confirm(
-          "Deleting your account removes all passkeys. This cannot be undone. Continue?",
+          "アカウントを削除するとすべてのパスキーが消えます。この操作は取り消せません。続行しますか？",
         );
         if (!confirmed) {
           return;
@@ -1152,12 +1192,12 @@
             throw new Error(await extractErrorMessage(response));
           }
           clearAccount();
-          setStatus("Account deleted.", "success");
+          setStatus("アカウントを削除しました。", "success");
         } catch (error) {
           setStatus(
             error?.message
-              ? `Failed to delete account: ${error.message}`
-              : "Failed to delete account.",
+              ? `アカウントの削除に失敗しました: ${error.message}`
+              : "アカウントの削除に失敗しました。",
             "error",
           );
         } finally {
@@ -1176,20 +1216,20 @@
         if (session?.isAuthenticated && session.user) {
           try {
             await loadAccount(session.user.username);
-            setStatus("Welcome back.", "success");
+            setStatus("おかえりなさい。", "success");
             return;
           } catch (error) {
             console.error("Failed to restore session:", error);
             clearAccount();
             setStatus(
-              "We could not restore your session. Please sign in again.",
+              "セッションを復元できませんでした。もう一度サインインしてください。",
               "error",
             );
             return;
           }
         }
         clearAccount();
-        setStatus("Ready.", "info");
+        setStatus("準備が整いました。", "info");
       };
 
       await initialise();

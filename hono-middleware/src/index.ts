@@ -92,21 +92,6 @@ const readSignedChallenge = async (
   return result;
 };
 
-let clientBundlePromise: Promise<string> | undefined;
-
-const loadClientBundle = () => {
-  if (!clientBundlePromise) {
-    clientBundlePromise = Deno.bundle({
-      entrypoints: [import.meta.resolve("./client.ts")],
-      // outputDir: "dist",
-      platform: "browser",
-      minify: true,
-      write: false,
-    }).then((x) => x.outputFiles![0].text());
-  }
-  return clientBundlePromise;
-};
-
 const normalizeMountPath = (path: string) => {
   if (!path || path === "/") return "";
   const withLeadingSlash = path.startsWith("/") ? path : `/${path}`;
@@ -251,10 +236,11 @@ export const createPasskeyMiddleware = (
     c.header("Cache-Control", "no-store");
   };
 
+  const clientJsPromise = Deno.readTextFile(new URL(import.meta.resolve("../_dist/client.js")))
   routes.get("/client.js", (c) =>
     respond(async () => {
       setNoStore(c);
-      const bundle = await loadClientBundle();
+      const bundle = await clientJsPromise;
       c.header("Content-Type", "application/javascript; charset=utf-8");
       return c.body(bundle);
     }));
