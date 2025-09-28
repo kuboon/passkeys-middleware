@@ -212,7 +212,7 @@
               type="text"
               name="username"
               autocomplete="username"
-              placeholder="yamada"
+              value="yamada"
               required
             />
           </label>
@@ -223,7 +223,7 @@
               type="text"
               name="displayName"
               autocomplete="name"
-              placeholder="山田 太郎"
+              value="山田 太郎"
             />
           </label>
         </fieldset>
@@ -267,8 +267,8 @@
       </section>
     </main>
 
-    <script src="/webauthn/client.js" defer></script>
     <script type="module">
+      import * as webauthn from "/webauthn/client.js"
       const statusEl = document.getElementById("status");
       const registerForm = document.getElementById("register-form");
       const authenticateForm = document.getElementById(
@@ -281,27 +281,6 @@
       const refreshButton = document.getElementById(
         "refresh-credentials",
       );
-
-      const waitForWebAuthn = () =>
-        new Promise((resolve, reject) => {
-          const started = Date.now();
-          const check = () => {
-            if (window.SimpleWebAuthnBrowser) {
-              resolve(window.SimpleWebAuthnBrowser);
-              return;
-            }
-            if (Date.now() - started > 5000) {
-              reject(
-                new Error(
-                  "SimpleWebAuthn クライアントの読み込みに失敗しました",
-                ),
-              );
-              return;
-            }
-            setTimeout(check, 50);
-          };
-          check();
-        });
 
       const escapeHtml = (value) =>
         value
@@ -443,9 +422,6 @@
           );
         }
       };
-
-      const webauthn = await waitForWebAuthn();
-      log("準備が整いました。");
 
       registerForm.addEventListener("submit", async (event) => {
         event.preventDefault();

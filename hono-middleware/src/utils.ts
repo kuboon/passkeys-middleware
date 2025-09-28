@@ -17,37 +17,3 @@ export const cryptoRandomUUIDFallback = (): string => {
     hex.slice(6, 8).join("")
   }-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
 };
-
-const readTextFile = async (path: string): Promise<string> => {
-  if (typeof Deno !== "undefined" && typeof Deno.readTextFile === "function") {
-    return Deno.readTextFile(path);
-  }
-  try {
-    const { readFile } = await import("node:fs/promises");
-    return readFile(path, "utf8");
-  } catch (error) {
-    throw new Error(
-      `Unable to read file '${path}': ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-};
-
-export const loadSimpleWebAuthnClient = async (): Promise<string> => {
-  const moduleUrl =
-    "https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js";
-  if (moduleUrl.startsWith("file://")) {
-    return readTextFile(moduleUrl.slice("file://".length));
-  }
-  if (moduleUrl.startsWith("http://") || moduleUrl.startsWith("https://")) {
-    const response = await fetch(moduleUrl);
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch SimpleWebAuthn client bundle: ${response.statusText}`,
-      );
-    }
-    return response.text();
-  }
-  return readTextFile(moduleUrl);
-};

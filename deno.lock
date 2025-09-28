@@ -1,19 +1,19 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@std/encoding@^1.0.10": "1.0.10",
+    "npm:@hexagon/base64@^2.0.4": "2.0.4",
+    "npm:@simplewebauthn/browser@^13.2.0": "13.2.0",
     "npm:@simplewebauthn/server@13": "13.2.1",
+    "npm:@types/node@*": "24.2.0",
     "npm:hono@*": "4.9.8",
     "npm:hono@^4.3.10": "4.9.8"
-  },
-  "jsr": {
-    "@std/encoding@1.0.10": {
-      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
-    }
   },
   "npm": {
     "@hexagon/base64@1.1.28": {
       "integrity": "sha512-lhqDEAvWixy3bZ+UOYbPwUbBkwBq5C1LAJ/xPC8Oi+lL54oyakv/npbA0aU2hgCsx/1NUd4IBvV03+aUBWxerw=="
+    },
+    "@hexagon/base64@2.0.4": {
+      "integrity": "sha512-H/ZY6rGyaEuk0mwQgZ3BVi9hMjFTYpBNFbmtOuec/pPibuGhCMXd8fGtwBaO0h44FkWMurysMsDrpkJsBRmoWQ=="
     },
     "@levischuck/tiny-cbor@0.2.11": {
       "integrity": "sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow=="
@@ -138,10 +138,13 @@
         "tsyringe"
       ]
     },
+    "@simplewebauthn/browser@13.2.0": {
+      "integrity": "sha512-N3fuA1AAnTo5gCStYoIoiasPccC+xPLx2YU88Dv0GeAmPQTWHETlZQq5xZ0DgUq1H9loXMWQH5qqUjcI7BHJ1A=="
+    },
     "@simplewebauthn/server@13.2.1": {
       "integrity": "sha512-Inmfye5opZXe3HI0GaksqBnQiM7glcNySoG6DH1GgkO1Lh9dvuV4XSV9DK02DReUVX39HpcDob9nxHELjECoQw==",
       "dependencies": [
-        "@hexagon/base64",
+        "@hexagon/base64@1.1.28",
         "@levischuck/tiny-cbor",
         "@peculiar/asn1-android",
         "@peculiar/asn1-ecc",
@@ -149,6 +152,12 @@
         "@peculiar/asn1-schema",
         "@peculiar/asn1-x509",
         "@peculiar/x509"
+      ]
+    },
+    "@types/node@24.2.0": {
+      "integrity": "sha512-3xyG3pMCq3oYCNg7/ZP+E1ooTaGB4cG8JWRsqqOYQdbWNY4zbaV0Ennrd7stjiJEFZCaybcIgpTjJWHRfBSIDw==",
+      "dependencies": [
+        "undici-types"
       ]
     },
     "asn1js@3.0.6": {
@@ -185,13 +194,17 @@
       "dependencies": [
         "tslib@1.14.1"
       ]
+    },
+    "undici-types@7.10.0": {
+      "integrity": "sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag=="
     }
   },
   "workspace": {
     "members": {
       "hono-middleware": {
         "dependencies": [
-          "jsr:@std/encoding@^1.0.10",
+          "npm:@hexagon/base64@^2.0.4",
+          "npm:@simplewebauthn/browser@^13.2.0",
           "npm:@simplewebauthn/server@13",
           "npm:hono@^4.3.10"
         ]

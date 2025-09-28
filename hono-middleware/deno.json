@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "strict": true,
-    "lib": ["deno.ns", "dom", "dom.iterable"]
+    "lib": ["deno.ns", "deno.unstable", "dom"]
   },
   "imports": {
     "hono": "npm:hono@^4.3.10",
@@ -9,8 +9,9 @@
     "hono/factory": "npm:hono@^4.3.10/factory",
     "hono/http-exception": "npm:hono@^4.3.10/http-exception",
     "hono/utils/http-status": "npm:hono@^4.3.10/utils/http-status",
+    "@simplewebauthn/browser": "npm:@simplewebauthn/browser@^13.2.0",
     "@simplewebauthn/server": "npm:@simplewebauthn/server@^13.0.0",
-    "@std/encoding": "jsr:@std/encoding@^1.0.10"
+    "@hexagon/base64": "npm:@hexagon/base64@^2.0.4"
   },
   "tasks": {
     "check": "deno check mod.ts src/index.ts src/utils.ts src/types.ts src/in-memory-challenge-store.ts src/in-memory-passkey-store.ts",

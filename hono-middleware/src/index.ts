@@ -26,8 +26,7 @@ import {
   RegistrationVerifyRequestBody,
 } from "./types.ts";
 import { InMemoryChallengeStore } from "./in-memory-challenge-store.ts";
-import { cryptoRandomUUIDFallback, loadSimpleWebAuthnClient } from "./utils.ts";
-import { decodeBase64Url, encodeBase64Url } from "@std/encoding/base64url";
+import { base64 } from "@hexagon/base64";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -35,8 +34,11 @@ declare module "hono" {
   }
 }
 
-const randomUUID = () =>
-  globalThis.crypto?.randomUUID() ?? cryptoRandomUUIDFallback();
+const encodeBase64Url = (input: ArrayBuffer) =>
+  base64.fromArrayBuffer(input, true);
+
+const decodeBase64Url = (input: string) =>
+  new Uint8Array(base64.toArrayBuffer(input, true));
 
 const DEFAULT_MOUNT_PATH = "/webauthn";
 const SESSION_COOKIE_NAME = "passkey_session";
@@ -50,7 +52,13 @@ let clientBundlePromise: Promise<string> | undefined;
 
 const loadClientBundle = () => {
   if (!clientBundlePromise) {
-    clientBundlePromise = loadSimpleWebAuthnClient();
+    clientBundlePromise = Deno.bundle({
+      entrypoints: [import.meta.resolve("./client.ts")],
+      // outputDir: "dist",
+      platform: "browser",
+      minify: true,
+      write: false
+    }).then(x=>x.outputFiles![0].text());
   }
   return clientBundlePromise;
 };
@@ -197,12 +205,6 @@ export const createPasskeyMiddleware = (
     c.set("passkey", state);
   };
 
-  router.use("*", async (c, next) => {
-    const state = await loadSessionState(c);
-    updateSessionState(c, state);
-    await next();
-  });
-
   const routes = mountPath ? router.basePath(mountPath) : router;
 
   const ensureJsonBody = async <T>(c: Context) => {
@@ -286,7 +288,7 @@ export const createPasskeyMiddleware = (
       if (!user) {
         const displayName = body.displayName?.trim() || username;
         user = {
-          id: randomUUID(),
+          id: crypto.randomUUID(),
           username,
           displayName,
         } satisfies PasskeyUser;
@@ -357,7 +359,7 @@ export const createPasskeyMiddleware = (
         throw jsonError(400, "No registration challenge for user");
       }
       const expectedChallenge = storedChallenge.challenge;
-      const expectedOrigin = storedChallenge.origin ?? getRequestOrigin(c);
+      const expectedOrigin = storedChallenge.origin;
 
       const verification = await webauthn.verifyRegistrationResponse({
         response: body.credential,
@@ -371,11 +373,10 @@ export const createPasskeyMiddleware = (
       if (!registrationInfo) {
         throw jsonError(400, "Registration could not be verified");
       }
-
       const registrationCredential = registrationInfo.credential;
       const credentialId = registrationCredential.id;
       const credentialPublicKey = encodeBase64Url(
-        registrationCredential.publicKey,
+        registrationCredential.publicKey.buffer,
       );
 
       const now = Date.now();
@@ -465,7 +466,7 @@ export const createPasskeyMiddleware = (
         throw jsonError(400, "No authentication challenge for user");
       }
       const expectedChallenge = storedChallenge.challenge;
-      const expectedOrigin = storedChallenge.origin ?? getRequestOrigin(c);
+      const expectedOrigin = storedChallenge.origin;
 
       const credentialId = body.credential.id;
       const storedCredential = await storage.getCredentialById(credentialId);
@@ -480,9 +481,7 @@ export const createPasskeyMiddleware = (
         expectedRPID: rpID,
         credential: {
           id: storedCredential.id,
-          publicKey: decodeBase64Url(storedCredential.publicKey) as Uint8Array<
-            ArrayBuffer
-          >,
+          publicKey: decodeBase64Url(storedCredential.publicKey),
           counter: storedCredential.counter,
           transports: storedCredential.transports,
         },

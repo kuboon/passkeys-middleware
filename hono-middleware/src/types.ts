@@ -48,7 +48,7 @@ export type ChallengeType = "registration" | "authentication";
 
 export interface PasskeyStoredChallenge {
   challenge: string;
-  origin?: string;
+  origin: string;
 }
 
 export interface PasskeyChallengeStore {
