@@ -23,7 +23,7 @@ mise exec -- deno task dev
 mise exec -- deno run --allow-env --allow-net server/src/index.ts
 ```
 
-## Python (optional)
+## Python (or Perl, optional)
 
 If you need Python, activate it via mise and then execute commands the same way:
 
