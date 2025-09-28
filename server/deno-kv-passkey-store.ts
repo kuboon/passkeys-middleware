@@ -2,7 +2,7 @@ import type {
   PasskeyCredential,
   PasskeyStorage,
   PasskeyUser,
-} from "./types.ts";
+} from "@passkeys-middleware/hono";
 
 const USER_KEY_PREFIX = ["passkeys_middleware", "user"] as const;
 const USERNAME_KEY_PREFIX = ["passkeys_middleware", "username"] as const;

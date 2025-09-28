@@ -553,6 +553,5 @@ export const createPasskeyMiddleware = (
 
 export type PasskeyMiddleware = ReturnType<typeof createPasskeyMiddleware>;
 
-export { DenoKvPasskeyStore } from "./deno-kv-passkey-store.ts";
 export { InMemoryPasskeyStore } from "./in-memory-passkey-store.ts";
 export * from "./types.ts";

@@ -6,10 +6,10 @@ import { setCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import {
   createPasskeyMiddleware,
-  DenoKvPasskeyStore,
   type PasskeySessionState,
   type PasskeyUser,
 } from "@passkeys-middleware/hono";
+import { DenoKvPasskeyStore } from "./deno-kv-passkey-store.ts";
 import process from "node:process";
 
 const rpID = process.env.RP_ID ?? "localhost";
