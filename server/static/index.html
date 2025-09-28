@@ -1,445 +1,1198 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Passkeys Middleware Demo</title>
-    <link rel="icon" href="data:image/png;base64,iVBORw0KGgo=">
+    <title>Passkey Control Center</title>
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgo=" />
     <style>
       :root {
         color-scheme: light dark;
-        font-family: "Inter", system-ui, sans-serif;
+        font-family:
+          "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+        --surface: rgba(255, 255, 255, 0.86);
+        --surface-strong: rgba(255, 255, 255, 0.97);
+        --surface-muted: rgba(15, 23, 42, 0.08);
+        --primary: #2563eb;
+        --primary-strong: #1d4ed8;
+        --danger: #dc2626;
+        --danger-strong: #b91c1c;
+        --text: #0f172a;
+        --text-muted: rgba(15, 23, 42, 0.68);
+        --border: rgba(15, 23, 42, 0.12);
+        --border-strong: rgba(15, 23, 42, 0.2);
+        --radius-lg: 20px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+        line-height: 1.5;
       }
       body {
         margin: 0;
-        padding: 0;
+        padding: 3rem 1.25rem 4rem;
         background:
           radial-gradient(
-            circle at top,
-            rgba(99, 102, 241, 0.18),
+            circle at top left,
+            rgba(59, 130, 246, 0.18),
             transparent 55%
           ),
           radial-gradient(
-          circle at bottom,
+          circle at bottom right,
           rgba(16, 185, 129, 0.18),
           transparent 55%
-        );
+        ),
+          linear-gradient(180deg, #f1f5f9, #e2e8f0);
         min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        color: var(--text);
       }
-      main {
-        background: rgba(255, 255, 255, 0.85);
-        color: #111;
+      @media (prefers-color-scheme: dark) {
+        body {
+          background:
+            radial-gradient(
+              circle at top left,
+              rgba(59, 130, 246, 0.3),
+              transparent 60%
+            ),
+            radial-gradient(
+            circle at bottom right,
+            rgba(16, 185, 129, 0.28),
+            transparent 60%
+          ),
+            linear-gradient(180deg, #020617, #0f172a);
+          color: rgba(226, 232, 240, 0.94);
+        }
+        :root {
+          --surface: rgba(15, 23, 42, 0.85);
+          --surface-strong: rgba(15, 23, 42, 0.96);
+          --surface-muted: rgba(226, 232, 240, 0.08);
+          --text: rgba(226, 232, 240, 0.94);
+          --text-muted: rgba(148, 163, 184, 0.9);
+          --border: rgba(148, 163, 184, 0.18);
+          --border-strong: rgba(148, 163, 184, 0.28);
+        }
+      }
+      main.page {
         max-width: 960px;
-        width: calc(100% - 2rem);
-        margin: 2rem auto;
-        padding: 2.5rem;
-        border-radius: 24px;
-        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
-        backdrop-filter: blur(12px);
-      }
-      h1 {
-        font-size: clamp(2rem, 3vw, 2.4rem);
-        margin-top: 0;
-      }
-      form {
-        margin-block: 1.5rem;
-        display: grid;
-        gap: 1rem;
-      }
-      fieldset {
-        border: 1px solid rgba(15, 23, 42, 0.08);
-        border-radius: 16px;
-        padding: 1.5rem;
-        background: rgba(255, 255, 255, 0.92);
-      }
-      legend {
-        font-weight: 600;
-        padding: 0 0.5rem;
-      }
-      label {
-        font-weight: 600;
+        margin: 0 auto;
         display: flex;
         flex-direction: column;
-        gap: 0.4rem;
-        font-size: 0.95rem;
+        gap: 2rem;
       }
-      input[type="text"],
-      input[type="password"],
-      input[type="search"] {
-        border-radius: 12px;
-        border: 1px solid rgba(71, 85, 105, 0.35);
-        padding: 0.75rem 1rem;
-        font-size: 1rem;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      .page-header {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 26px 40px rgba(15, 23, 42, 0.18);
+        padding: clamp(1.75rem, 2vw + 1.25rem, 2.5rem);
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
       }
-      input:focus {
-        outline: none;
-        border-color: rgba(99, 102, 241, 0.6);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+      @media (min-width: 768px) {
+        .page-header {
+          flex-direction: row;
+          align-items: flex-start;
+          justify-content: space-between;
+        }
       }
-      button {
-        appearance: none;
-        border: none;
-        border-radius: 999px;
-        padding: 0.75rem 1.8rem;
-        font-size: 1rem;
+      .brand {
+        display: grid;
+        gap: 0.75rem;
+      }
+      .brand .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.75rem;
         font-weight: 600;
-        cursor: pointer;
-        background: linear-gradient(
-          120deg,
-          rgba(99, 102, 241, 0.9),
-          rgba(59, 130, 246, 0.9)
-        );
-        color: white;
-        box-shadow: 0 8px 18px rgba(59, 130, 246, 0.35);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        color: var(--text-muted);
+        margin: 0;
       }
-      button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 12px 26px rgba(59, 130, 246, 0.45);
+      .brand h1 {
+        font-size: clamp(2rem, 3vw, 2.6rem);
+        margin: 0;
       }
-      button:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
+      .brand .lead {
+        font-size: clamp(1rem, 2.2vw, 1.1rem);
+        margin: 0;
+        color: var(--text-muted);
       }
-      .actions {
+      .status {
+        border-radius: var(--radius-md);
+        padding: 1rem 1.25rem;
+        background: var(--surface-muted);
+        font-weight: 500;
+        border: 1px solid transparent;
+      }
+      .status[data-status="success"] {
+        background: rgba(34, 197, 94, 0.15);
+        color: #047857;
+        border-color: rgba(34, 197, 94, 0.2);
+      }
+      .status[data-status="error"] {
+        background: rgba(248, 113, 113, 0.16);
+        color: var(--danger-strong);
+        border-color: rgba(248, 113, 113, 0.26);
+      }
+      .status[data-status="info"] {
+        background: var(--surface-muted);
+        color: var(--text-muted);
+        border-color: var(--border);
+      }
+      .panel {
+        display: grid;
+        gap: 1.75rem;
+      }
+      .card {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+        padding: clamp(1.5rem, 2vw + 1rem, 2.25rem);
+        display: grid;
+        gap: 1.5rem;
+        border: 1px solid var(--border);
+      }
+      .section-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      @media (min-width: 640px) {
+        .section-header {
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: flex-start;
+        }
+      }
+      .section-header h2,
+      .section-header h3 {
+        margin: 0;
+      }
+      .section-actions {
         display: flex;
         gap: 0.75rem;
         flex-wrap: wrap;
       }
-      .status {
-        border-radius: 12px;
-        padding: 1rem;
-        background: rgba(15, 23, 42, 0.08);
-        color: #0f172a;
-        margin-block: 1rem;
-        min-height: 3rem;
+      .hint {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+      }
+      form.stack {
+        display: grid;
+        gap: 1.25rem;
+      }
+      .field {
+        display: grid;
+        gap: 0.5rem;
+        font-size: 0.95rem;
+      }
+      .field span {
+        font-weight: 600;
+      }
+      input[type="text"],
+      input[type="search"] {
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-strong);
+        background: var(--surface-strong);
+        padding: 0.8rem 1rem;
+        font-size: 1rem;
+        color: inherit;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+      }
+      input:focus {
+        outline: none;
+        border-color: rgba(37, 99, 235, 0.45);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+      }
+      button {
+        appearance: none;
+        border-radius: var(--radius-md);
+        border: 1px solid transparent;
+        padding: 0.7rem 1.4rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          transform 0.15s ease,
+          box-shadow 0.15s ease,
+          background-color 0.2s ease,
+          border-color 0.2s ease;
+      }
+      button.primary {
+        background: var(--primary);
+        color: #fff;
+        box-shadow: 0 18px 30px rgba(37, 99, 235, 0.26);
+      }
+      button.primary:hover {
+        background: var(--primary-strong);
+        transform: translateY(-1px);
+        box-shadow: 0 22px 38px rgba(37, 99, 235, 0.3);
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--text);
+        border-color: var(--border-strong);
+      }
+      button.secondary:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      button.secondary.accent {
+        border-color: rgba(37, 99, 235, 0.4);
+        color: var(--primary);
+        background: rgba(37, 99, 235, 0.1);
+      }
+      button.secondary.accent:hover {
+        background: rgba(37, 99, 235, 0.16);
+      }
+      button.danger {
+        background: var(--danger);
+        color: #fff;
+        border-color: var(--danger);
+        box-shadow: 0 16px 28px rgba(220, 38, 38, 0.28);
+      }
+      button.danger:hover {
+        background: var(--danger-strong);
+      }
+      button.danger.outline {
+        background: rgba(220, 38, 38, 0.12);
+        color: var(--danger-strong);
+        border-color: rgba(220, 38, 38, 0.24);
+        box-shadow: none;
+      }
+      button.danger.outline:hover {
+        background: rgba(220, 38, 38, 0.18);
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+        transform: none;
+        box-shadow: none;
+      }
+      .button-row {
         display: flex;
-        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
       }
-      .status[data-status="success"] {
-        background: rgba(16, 185, 129, 0.12);
-        color: #047857;
+      .button-row.align-start {
+        justify-content: flex-start;
       }
-      .status[data-status="error"] {
-        background: rgba(239, 68, 68, 0.12);
-        color: #b91c1c;
+      .button-row.align-end {
+        justify-content: flex-end;
       }
       .credentials {
         list-style: none;
         padding: 0;
         margin: 0;
         display: grid;
-        gap: 0.75rem;
+        gap: 1rem;
       }
       .credentials li {
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.92);
-        border: 1px solid rgba(15, 23, 42, 0.08);
-        padding: 1rem 1.25rem;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        background: var(--surface-strong);
+        padding: 1.2rem 1.4rem;
         display: grid;
-        gap: 0.4rem;
+        gap: 0.8rem;
+      }
+      .credentials li.empty {
+        color: var(--text-muted);
+        font-style: italic;
       }
       .credential-header {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: baseline;
         gap: 0.75rem;
       }
       .credential-header strong {
         font-size: 1.05rem;
       }
       .credential-meta {
-        font-size: 0.85rem;
-        color: rgba(30, 41, 59, 0.85);
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem 1rem;
-      }
-      .credential-meta span {
-        display: inline-flex;
-        align-items: center;
+        display: grid;
         gap: 0.35rem;
-      }
-      .credential-meta span::before {
-        content: "•";
-        color: rgba(99, 102, 241, 0.75);
-      }
-      .credential-meta span:first-child::before {
-        content: "";
-        width: 0;
-      }
-      .credentials button {
-        background: rgba(239, 68, 68, 0.15);
-        color: #b91c1c;
-        box-shadow: none;
-        padding: 0.4rem 1rem;
-      }
-      .credentials button:hover {
-        background: rgba(239, 68, 68, 0.22);
-        transform: none;
-      }
-      footer {
-        margin-top: 2rem;
         font-size: 0.85rem;
-        color: rgba(30, 41, 59, 0.75);
-        text-align: center;
+        color: var(--text-muted);
+      }
+      @media (min-width: 720px) {
+        .credential-meta {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .credential-meta div {
+        display: flex;
+        gap: 0.45rem;
+      }
+      .credential-meta div span {
+        font-weight: 600;
+        color: var(--text);
+        min-width: 5.5rem;
+      }
+      dialog {
+        border: none;
+        border-radius: var(--radius-lg);
+        box-shadow: 0 32px 80px rgba(15, 23, 42, 0.32);
+        padding: 0;
+        max-width: 420px;
+        width: min(92vw, 420px);
+        background: var(--surface-strong);
+        color: inherit;
+      }
+      dialog::backdrop {
+        background: rgba(15, 23, 42, 0.45);
+      }
+      .dialog-form {
+        display: grid;
+        gap: 1.25rem;
+        padding: 1.8rem;
+      }
+      .dialog-form h2 {
+        margin: 0;
+        font-size: 1.35rem;
+      }
+      [hidden] {
+        display: none !important;
       }
     </style>
   </head>
   <body>
-    <main>
-      <h1>Passkeys Middleware Demo</h1>
-      <p>
-        このデモは <code>@passkeys-middleware/hono</code> を使って作られた Hono
-        アプリです。
-        一つのアカウントに複数のパスキーを登録し、それぞれにニックネームを設定できます。
-      </p>
+    <main class="page">
+      <header class="page-header">
+        <div class="brand">
+          <p class="eyebrow">Account security</p>
+          <h1>Security Key Management</h1>
+          <p class="lead">
+            Manage your profile details and registered passkeys without leaving
+            the app.
+          </p>
+        </div>
+        <div class="status" id="status" data-status="info" role="status">
+          Ready.
+        </div>
+      </header>
 
-      <div class="status" id="status" data-status="info">ready</div>
+      <section id="guest-view" class="panel">
+        <div class="card">
+          <h2>Sign in with a passkey</h2>
+          <form id="guest-form" class="stack" autocomplete="off">
+            <label class="field" for="guest-username">
+              <span>Username</span>
+              <input
+                id="guest-username"
+                type="text"
+                name="username"
+                autocomplete="username webauthn"
+                placeholder="your-name"
+                required
+              />
+            </label>
+            <div class="button-row align-start">
+              <button type="submit" class="primary">Sign in</button>
+              <button
+                type="button"
+                id="open-create-account"
+                class="secondary"
+              >
+                Create account
+              </button>
+            </div>
+          </form>
+          <p id="conditional-status" class="hint" data-state="pending">
+            Checking for passkey autofill support…
+          </p>
+        </div>
+      </section>
 
-      <form id="register-form">
-        <fieldset>
-          <legend>アカウント</legend>
-          <label>
-            ユーザー名
+      <section id="account-view" class="panel" hidden>
+        <div class="card">
+          <header class="section-header">
+            <div>
+              <h2>Profile details</h2>
+              <p class="hint" id="account-summary">
+                Signed in user details appear here.
+              </p>
+            </div>
+            <div class="section-actions">
+              <button type="button" id="logout" class="secondary">
+                Log out
+              </button>
+              <button type="button" id="delete-account" class="danger">
+                Delete account
+              </button>
+            </div>
+          </header>
+          <form id="profile-form" class="stack">
+            <label class="field" for="account-username">
+              <span>Username</span>
+              <input
+                id="account-username"
+                type="text"
+                name="username"
+                autocomplete="username"
+                required
+              />
+            </label>
+            <label class="field" for="account-display-name">
+              <span>Display name</span>
+              <input
+                id="account-display-name"
+                type="text"
+                name="displayName"
+                autocomplete="name"
+              />
+            </label>
+            <div class="button-row align-start">
+              <button type="submit" class="primary">Save changes</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <header class="section-header">
+            <div>
+              <h2>Passkeys</h2>
+              <p class="hint">
+                Register additional devices and revoke keys you no longer use.
+              </p>
+            </div>
+            <div class="section-actions">
+              <button
+                type="button"
+                id="add-passkey"
+                class="secondary accent"
+              >
+                Add another key
+              </button>
+            </div>
+          </header>
+          <ul id="credential-list" class="credentials">
+            <li class="empty">Passkeys will appear here after you sign in.</li>
+          </ul>
+        </div>
+      </section>
+
+      <dialog id="passkey-dialog">
+        <form id="passkey-form" class="dialog-form">
+          <h2 id="passkey-dialog-title">Add a passkey</h2>
+          <p id="passkey-dialog-description" class="hint">
+            Name the key so you can recognise it later.
+          </p>
+          <label class="field" id="passkey-display-name-field">
+            <span>Display name</span>
             <input
-              id="username"
-              type="text"
-              name="username"
-              autocomplete="username"
-              value="yamada"
-              required
-            />
-          </label>
-          <label>
-            表示名
-            <input
-              id="displayName"
+              id="passkey-display-name"
               type="text"
               name="displayName"
               autocomplete="name"
-              value="山田 太郎"
             />
           </label>
-        </fieldset>
-
-        <fieldset>
-          <legend>パスキー登録</legend>
-          <label>
-            ニックネーム
+          <label class="field" for="passkey-nickname">
+            <span>Passkey nickname</span>
             <input
-              id="nickname"
+              id="passkey-nickname"
               type="text"
               name="nickname"
-              placeholder="仕事用 iPhone"
+              placeholder="Work laptop"
               required
             />
           </label>
-          <div class="actions">
-            <button type="submit">パスキーを登録</button>
-            <button type="button" id="refresh-credentials">
-              登録済みの確認
+          <div class="button-row align-end">
+            <button type="button" id="cancel-passkey-dialog" class="secondary">
+              Cancel
+            </button>
+            <button type="submit" id="submit-passkey-dialog" class="primary">
+              Continue
             </button>
           </div>
-        </fieldset>
-      </form>
-
-      <form id="authenticate-form">
-        <fieldset>
-          <legend>サインイン</legend>
-          <p>上記のユーザー名でパスキー認証を行います。</p>
-          <div class="actions">
-            <button type="submit">パスキーでサインイン</button>
-          </div>
-        </fieldset>
-      </form>
-
-      <section>
-        <h2>登録済みのパスキー</h2>
-        <ul class="credentials" id="credentials">
-          <li>まだパスキーが登録されていません。</li>
-        </ul>
-      </section>
+        </form>
+      </dialog>
     </main>
 
     <script type="module">
       import { createClient } from "/webauthn/client.js";
-      const statusEl = document.getElementById("status");
-      const registerForm = document.getElementById("register-form");
-      const authenticateForm = document.getElementById(
-        "authenticate-form",
-      );
-      const usernameInput = document.getElementById("username");
-      const displayNameInput = document.getElementById("displayName");
-      const nicknameInput = document.getElementById("nickname");
-      const credentialsList = document.getElementById("credentials");
-      const refreshButton = document.getElementById(
-        "refresh-credentials",
-      );
+
       const client = createClient();
 
-      const escapeHtml = (value) =>
-        value
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#39;");
+      const storageKey = "passkeys.currentUsername";
 
-      const toDateTime = (timestamp) => {
+      const statusEl = document.getElementById("status");
+      const guestView = document.getElementById("guest-view");
+      const accountView = document.getElementById("account-view");
+      const guestForm = document.getElementById("guest-form");
+      const guestUsernameInput = document.getElementById(
+        "guest-username",
+      );
+      const conditionalStatus = document.getElementById(
+        "conditional-status",
+      );
+      const createAccountButton = document.getElementById(
+        "open-create-account",
+      );
+      const accountSummary = document.getElementById("account-summary");
+      const logoutButton = document.getElementById("logout");
+      const deleteAccountButton = document.getElementById(
+        "delete-account",
+      );
+      const profileForm = document.getElementById("profile-form");
+      const accountUsernameInput = document.getElementById(
+        "account-username",
+      );
+      const accountDisplayNameInput = document.getElementById(
+        "account-display-name",
+      );
+      const profileSubmitButton = profileForm.querySelector(
+        'button[type="submit"]',
+      );
+      const addPasskeyButton = document.getElementById("add-passkey");
+      const credentialsList = document.getElementById(
+        "credential-list",
+      );
+      const passkeyDialog = document.getElementById("passkey-dialog");
+      const passkeyForm = document.getElementById("passkey-form");
+      const passkeyDialogTitle = document.getElementById(
+        "passkey-dialog-title",
+      );
+      const passkeyDialogDescription = document.getElementById(
+        "passkey-dialog-description",
+      );
+      const passkeyDisplayNameField = document.getElementById(
+        "passkey-display-name-field",
+      );
+      const passkeyDisplayNameInput = document.getElementById(
+        "passkey-display-name",
+      );
+      const passkeyNicknameInput = document.getElementById(
+        "passkey-nickname",
+      );
+      const passkeyDialogCancel = document.getElementById(
+        "cancel-passkey-dialog",
+      );
+      const passkeyDialogSubmit = document.getElementById(
+        "submit-passkey-dialog",
+      );
+
+      const state = {
+        account: null,
+        credentials: [],
+        conditionalAvailable: null,
+      };
+
+      const setStatus = (message, type = "info") => {
+        statusEl.textContent = message;
+        statusEl.dataset.status = type;
+      };
+
+      const formatDate = (value) => {
         try {
-          return new Date(timestamp).toLocaleString();
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) {
+            return "-";
+          }
+          return date.toLocaleString();
         } catch {
           return "-";
         }
       };
 
-      const log = (message, type = "info") => {
-        statusEl.textContent = message;
-        statusEl.dataset.status = type;
+      const storeUsername = (value) => {
+        try {
+          if (value) {
+            localStorage.setItem(storageKey, value);
+          }
+        } catch {
+          // ignore storage failures
+        }
+      };
+
+      const getStoredUsername = () => {
+        try {
+          return localStorage.getItem(storageKey) ?? "";
+        } catch {
+          return "";
+        }
+      };
+
+      const updateViews = () => {
+        const hasAccount = Boolean(state.account);
+        guestView.hidden = hasAccount;
+        accountView.hidden = !hasAccount;
       };
 
       const renderCredentials = (credentials) => {
         credentialsList.innerHTML = "";
+        if (!state.account) {
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent =
+            "Passkeys will appear here after you sign in.";
+          credentialsList.append(li);
+          return;
+        }
+        if (!credentials.length) {
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent = "No passkeys registered yet.";
+          credentialsList.append(li);
+          return;
+        }
         for (const credential of credentials) {
           const li = document.createElement("li");
-          li.innerHTML = `
-            <div class="credential-header">
-              <strong>${escapeHtml(credential.nickname)}</strong>
-              <button type="button" data-credential=""></button>
-            </div>
-            <div class="credential-meta">
-              <span>ID: ${escapeHtml(credential.id)}</span>
-              <span>更新: ${
-            escapeHtml(toDateTime(credential.updatedAt))
-          }</span>
-              <span>種類: ${
-            escapeHtml(credential.deviceType ?? "不明")
-          }</span>
-              <span>バックアップ: ${
-            credential.backedUp ? "はい" : "いいえ"
-          }</span>
-            </div>
-          `;
-          const deleteButton = li.querySelector("button");
-          if (deleteButton) {
-            deleteButton.dataset.credential = credential.id;
-            deleteButton.textContent = "削除";
+
+          const header = document.createElement("div");
+          header.className = "credential-header";
+          const title = document.createElement("strong");
+          title.textContent = credential.nickname || "Unnamed device";
+          header.append(title);
+
+          const deleteButton = document.createElement("button");
+          deleteButton.type = "button";
+          deleteButton.className = "danger outline";
+          deleteButton.dataset.credentialId = credential.id;
+          deleteButton.textContent = "Remove";
+          header.append(deleteButton);
+          li.append(header);
+
+          const meta = document.createElement("div");
+          meta.className = "credential-meta";
+
+          const rows = [
+            ["Device", credential.deviceType ?? "Unknown"],
+            ["Backed up", credential.backedUp ? "Yes" : "No"],
+            ["Added", formatDate(credential.createdAt)],
+            ["Updated", formatDate(credential.updatedAt)],
+            [
+              "ID",
+              credential.id.length > 14
+                ? `${credential.id.slice(0, 6)}…${
+                  credential.id.slice(-6)
+                }`
+                : credential.id,
+            ],
+          ];
+
+          for (const [label, value] of rows) {
+            const row = document.createElement("div");
+            const labelEl = document.createElement("span");
+            labelEl.textContent = `${label}`;
+            const valueEl = document.createElement("span");
+            valueEl.textContent = `${value}`;
+            valueEl.style.fontWeight = "500";
+            row.append(labelEl, valueEl);
+            meta.append(row);
           }
-          deleteButton?.addEventListener(
-            "click",
-            async (event) => {
-              const username = usernameInput.value.trim();
-              if (!username) {
-                log("ユーザー名を入力してください。", "error");
-                return;
-              }
-              const target = event.currentTarget;
-              const credentialId = target?.dataset.credential ??
-                credential.id;
-              try {
-                await client.delete({
-                  username,
-                  credentialId,
-                });
-                log(
-                  `パスキー「${credential.nickname}」を削除しました。`,
-                  "success",
-                );
-                await updateCredentials();
-              } catch (error) {
-                log(`削除に失敗しました: ${error.message}`, "error");
-              }
-            },
-          );
-          credentialsList.appendChild(li);
+
+          li.append(meta);
+          credentialsList.append(li);
         }
       };
 
-      const updateCredentials = async () => {
-        const username = usernameInput.value.trim();
-        if (!username) {
-          credentialsList.innerHTML =
-            "<li>ユーザー名を入力すると登録済みのパスキーが表示されます。</li>";
+      const renderAccount = () => {
+        const account = state.account;
+        if (!account) {
+          accountSummary.textContent =
+            "Sign in to manage your account.";
+          accountUsernameInput.value = "";
+          accountDisplayNameInput.value = "";
+          renderCredentials([]);
+          updateViews();
           return;
         }
+        const { user, credentials } = account;
+        accountSummary.textContent = user.displayName
+          ? `${user.displayName} · ${user.username}`
+          : user.username;
+        accountUsernameInput.value = user.username;
+        accountDisplayNameInput.value = user.displayName ?? "";
+        renderCredentials(credentials);
+        updateViews();
+      };
+
+      const setAccount = (account) => {
+        if (account && account.user) {
+          state.account = {
+            user: account.user,
+            credentials: Array.isArray(account.credentials)
+              ? account.credentials
+              : [],
+          };
+          state.credentials = state.account.credentials;
+        } else {
+          state.account = null;
+          state.credentials = [];
+        }
+        renderAccount();
+      };
+
+      const getSession = async () => {
         try {
-          const credentials = await client.list({ username });
-          if (!credentials.length) {
-            credentialsList.innerHTML =
-              "<li>登録済みのパスキーはありません。</li>";
-            return;
+          const response = await fetch("/session", {
+            credentials: "include",
+          });
+          if (!response.ok) {
+            return null;
           }
-          renderCredentials(credentials);
+          return await response.json();
+        } catch {
+          return null;
+        }
+      };
+
+      const extractErrorMessage = async (response) => {
+        try {
+          const json = await response.clone().json();
+          if (json && typeof json === "object" && "message" in json) {
+            const message = json.message;
+            if (typeof message === "string" && message.trim()) {
+              return message.trim();
+            }
+          }
+        } catch {
+          // ignore
+        }
+        try {
+          const text = await response.text();
+          if (text.trim()) {
+            return text.trim();
+          }
+        } catch {
+          // ignore
+        }
+        return `Request failed with status ${response.status}`;
+      };
+
+      const fetchAccount = async (username) => {
+        const normalized = username.trim();
+        if (!normalized) {
+          throw new Error("Username is required.");
+        }
+        const response = await fetch(
+          `/webauthn/credentials?username=${
+            encodeURIComponent(normalized)
+          }`,
+          { credentials: "include" },
+        );
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error("Account not found.");
+          }
+          throw new Error(await extractErrorMessage(response));
+        }
+        const data = await response.json();
+        if (!data || typeof data !== "object" || !data.user) {
+          throw new Error("Account not found.");
+        }
+        const credentials = Array.isArray(data.credentials)
+          ? data.credentials
+          : [];
+        return { user: data.user, credentials };
+      };
+
+      const loadAccount = async (username) => {
+        const account = await fetchAccount(username);
+        setAccount(account);
+        storeUsername(account.user.username);
+        return account;
+      };
+
+      const refreshAccount = async () => {
+        if (!state.account) {
+          return;
+        }
+        const username = state.account.user.username;
+        try {
+          await loadAccount(username);
         } catch (error) {
-          log(
-            `登録済みパスキーの取得に失敗しました: ${error.message}`,
+          setStatus(
+            error.message ?? "Unable to refresh account.",
             "error",
           );
         }
       };
 
-      registerForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const username = usernameInput.value.trim();
-        const nickname = nicknameInput.value.trim();
-        if (!username) {
-          log("ユーザー名を入力してください。", "error");
-          return;
+      const clearAccount = () => {
+        setAccount(null);
+      };
+
+      const authenticateWithPasskey = async (username) => {
+        setStatus("Waiting for your passkey…");
+        await client.authenticate({ username });
+        await loadAccount(username);
+        setStatus("Signed in successfully.", "success");
+      };
+
+      const checkConditionalMediation = async () => {
+        if (
+          typeof PublicKeyCredential === "undefined" ||
+          typeof PublicKeyCredential.isConditionalMediationAvailable !==
+            "function"
+        ) {
+          conditionalStatus.textContent =
+            "Your browser does not support passkey autofill yet.";
+          conditionalStatus.dataset.state = "unsupported";
+          return false;
         }
-        if (!nickname) {
-          log("ニックネームを入力してください。", "error");
-          return;
-        }
-        const displayName = displayNameInput.value.trim();
         try {
-          log("パスキー登録を実行しています…");
-          await client.register({
-            username,
-            displayName: displayName || undefined,
-            nickname,
-          });
-          log(
-            `「${nickname}」としてパスキーを登録しました。`,
-            "success",
+          const available = await PublicKeyCredential
+            .isConditionalMediationAvailable();
+          state.conditionalAvailable = available;
+          conditionalStatus.textContent = available
+            ? "Passkey autofill is available in this browser."
+            : "Passkey autofill is disabled. You can still sign in manually.";
+          conditionalStatus.dataset.state = available
+            ? "available"
+            : "absent";
+          return available;
+        } catch (error) {
+          console.error(
+            "Failed to detect conditional mediation:",
+            error,
           );
-          nicknameInput.value = "";
-          await updateCredentials();
-        } catch (error) {
-          log(`パスキー登録に失敗しました: ${error.message}`, "error");
+          conditionalStatus.textContent =
+            "Unable to determine passkey autofill support.";
+          conditionalStatus.dataset.state = "error";
+          return false;
         }
-      });
+      };
 
-      authenticateForm.addEventListener("submit", async (event) => {
+      guestForm.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const username = usernameInput.value.trim();
-        if (!username) {
-          log("ユーザー名を入力してください。", "error");
+        if (guestForm.dataset.loading === "true") {
           return;
         }
+        const username = guestUsernameInput.value.trim();
+        if (!username) {
+          setStatus("Enter your username first.", "error");
+          guestUsernameInput.focus();
+          return;
+        }
+        guestForm.dataset.loading = "true";
         try {
-          log("パスキー認証を実行しています…");
-          await client.authenticate({ username });
-          log("サインインに成功しました。", "success");
+          await authenticateWithPasskey(username);
         } catch (error) {
-          log(`サインインに失敗しました: ${error.message}`, "error");
+          setStatus(
+            error?.message
+              ? `Sign-in failed: ${error.message}`
+              : "Sign-in was cancelled or failed.",
+            "error",
+          );
+        } finally {
+          guestForm.dataset.loading = "false";
         }
       });
 
-      refreshButton.addEventListener("click", async () => {
-        await updateCredentials();
+      guestUsernameInput.addEventListener("input", () => {
+        storeUsername(guestUsernameInput.value.trim());
       });
 
-      usernameInput.addEventListener("change", updateCredentials);
-      usernameInput.addEventListener("blur", updateCredentials);
+      const openPasskeyDialog = (mode) => {
+        passkeyDialog.dataset.mode = mode;
+        if (mode === "create") {
+          passkeyDialogTitle.textContent = "Create your account";
+          passkeyDialogDescription.textContent =
+            "We will register the first passkey for this username.";
+          passkeyDisplayNameField.hidden = false;
+          passkeyDialogSubmit.textContent = "Create account";
+          passkeyDisplayNameInput.value = guestUsernameInput.value
+            .trim();
+        } else {
+          passkeyDialogTitle.textContent = "Add another passkey";
+          passkeyDialogDescription.textContent =
+            "Name the key so you can recognise it later.";
+          passkeyDisplayNameField.hidden = true;
+          passkeyDialogSubmit.textContent = "Save passkey";
+          if (state.account?.user?.displayName) {
+            passkeyDisplayNameInput.value =
+              state.account.user.displayName;
+          } else {
+            passkeyDisplayNameInput.value = "";
+          }
+        }
+        passkeyNicknameInput.value = "";
+        try {
+          passkeyDialog.showModal();
+          passkeyNicknameInput.focus();
+        } catch (error) {
+          console.error("Unable to open dialog:", error);
+        }
+      };
 
-      await updateCredentials();
+      createAccountButton.addEventListener("click", () => {
+        if (!guestUsernameInput.value.trim()) {
+          setStatus("Enter a username to create an account.", "error");
+          guestUsernameInput.focus();
+          return;
+        }
+        openPasskeyDialog("create");
+      });
+
+      addPasskeyButton.addEventListener("click", () => {
+        if (!state.account) {
+          setStatus("Sign in before adding a new passkey.", "error");
+          return;
+        }
+        openPasskeyDialog("add");
+      });
+
+      passkeyDialogCancel.addEventListener("click", () => {
+        passkeyDialog.close();
+      });
+
+      passkeyDialog.addEventListener("close", () => {
+        passkeyForm.dataset.loading = "false";
+      });
+
+      passkeyForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (passkeyForm.dataset.loading === "true") {
+          return;
+        }
+        const nickname = passkeyNicknameInput.value.trim();
+        if (!nickname) {
+          setStatus("Enter a nickname for your passkey.", "error");
+          passkeyNicknameInput.focus();
+          return;
+        }
+        const mode = passkeyDialog.dataset.mode ?? "add";
+        passkeyForm.dataset.loading = "true";
+        passkeyDialogSubmit.disabled = true;
+        try {
+          if (mode === "create") {
+            const username = guestUsernameInput.value.trim();
+            if (!username) {
+              throw new Error("Username is required.");
+            }
+            const displayName = passkeyDisplayNameInput.value.trim();
+            setStatus("Waiting for your security key…");
+            await client.register({
+              username,
+              displayName: displayName || undefined,
+              nickname,
+            });
+            setStatus(`Passkey "${nickname}" registered.`, "success");
+            passkeyDialog.close();
+            await authenticateWithPasskey(username);
+          } else {
+            if (!state.account) {
+              throw new Error("No signed-in account.");
+            }
+            const username = state.account.user.username;
+            setStatus("Waiting for your security key…");
+            await client.register({
+              username,
+              displayName: state.account.user.displayName || undefined,
+              nickname,
+            });
+            setStatus(`Passkey "${nickname}" added.`, "success");
+            passkeyDialog.close();
+            await refreshAccount();
+          }
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `Passkey setup failed: ${error.message}`
+              : "Passkey setup failed.",
+            "error",
+          );
+        } finally {
+          passkeyDialogSubmit.disabled = false;
+          passkeyForm.dataset.loading = "false";
+        }
+      });
+
+      credentialsList.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+        const button = target.closest("button[data-credential-id]");
+        if (!(button instanceof HTMLButtonElement)) {
+          return;
+        }
+        if (!state.account) {
+          setStatus("Sign in before managing passkeys.", "error");
+          return;
+        }
+        const credentialId = button.dataset.credentialId;
+        if (!credentialId) {
+          return;
+        }
+        if (button.dataset.loading === "true") {
+          return;
+        }
+        button.dataset.loading = "true";
+        button.disabled = true;
+        try {
+          setStatus("Removing passkey…");
+          await client.delete({
+            username: state.account.user.username,
+            credentialId,
+          });
+          setStatus("Passkey removed.", "success");
+          await refreshAccount();
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `Failed to remove passkey: ${error.message}`
+              : "Failed to remove passkey.",
+            "error",
+          );
+        } finally {
+          button.dataset.loading = "false";
+          button.disabled = false;
+        }
+      });
+
+      profileForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!state.account) {
+          setStatus("Sign in before updating your profile.", "error");
+          return;
+        }
+        if (profileForm.dataset.loading === "true") {
+          return;
+        }
+        const username = accountUsernameInput.value.trim();
+        const displayName = accountDisplayNameInput.value.trim();
+        const payload = {};
+        if (username && username !== state.account.user.username) {
+          payload.username = username;
+        }
+        if (displayName !== state.account.user.displayName) {
+          payload.displayName = displayName;
+        }
+        if (Object.keys(payload).length === 0) {
+          setStatus("No changes to save.", "info");
+          return;
+        }
+        profileForm.dataset.loading = "true";
+        profileSubmitButton.disabled = true;
+        try {
+          const response = await fetch("/account", {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          const data = await response.json();
+          if (!data || typeof data !== "object" || !data.user) {
+            throw new Error("Unexpected response from server.");
+          }
+          state.account = {
+            user: data.user,
+            credentials: state.credentials,
+          };
+          storeUsername(data.user.username);
+          renderAccount();
+          setStatus("Profile updated.", "success");
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `Failed to save profile: ${error.message}`
+              : "Failed to save profile.",
+            "error",
+          );
+        } finally {
+          profileForm.dataset.loading = "false";
+          profileSubmitButton.disabled = false;
+        }
+      });
+
+      logoutButton.addEventListener("click", async () => {
+        if (logoutButton.dataset.loading === "true") {
+          return;
+        }
+        logoutButton.dataset.loading = "true";
+        logoutButton.disabled = true;
+        try {
+          const response = await fetch("/session/logout", {
+            method: "POST",
+            credentials: "include",
+          });
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          clearAccount();
+          setStatus("Signed out.", "info");
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `Failed to sign out: ${error.message}`
+              : "Failed to sign out.",
+            "error",
+          );
+        } finally {
+          logoutButton.dataset.loading = "false";
+          logoutButton.disabled = false;
+        }
+      });
+
+      deleteAccountButton.addEventListener("click", async () => {
+        if (!state.account) {
+          setStatus("Sign in before deleting your account.", "error");
+          return;
+        }
+        if (deleteAccountButton.dataset.loading === "true") {
+          return;
+        }
+        const confirmed = window.confirm(
+          "Deleting your account removes all passkeys. This cannot be undone. Continue?",
+        );
+        if (!confirmed) {
+          return;
+        }
+        deleteAccountButton.dataset.loading = "true";
+        deleteAccountButton.disabled = true;
+        try {
+          const response = await fetch("/account", {
+            method: "DELETE",
+            credentials: "include",
+          });
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          clearAccount();
+          setStatus("Account deleted.", "success");
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `Failed to delete account: ${error.message}`
+              : "Failed to delete account.",
+            "error",
+          );
+        } finally {
+          deleteAccountButton.dataset.loading = "false";
+          deleteAccountButton.disabled = false;
+        }
+      });
+
+      const initialise = async () => {
+        const stored = getStoredUsername();
+        if (stored) {
+          guestUsernameInput.value = stored;
+        }
+        await checkConditionalMediation();
+        const session = await getSession();
+        if (session?.isAuthenticated && session.user) {
+          try {
+            await loadAccount(session.user.username);
+            setStatus("Welcome back.", "success");
+            return;
+          } catch (error) {
+            console.error("Failed to restore session:", error);
+            clearAccount();
+            setStatus(
+              "We could not restore your session. Please sign in again.",
+              "error",
+            );
+            return;
+          }
+        }
+        clearAccount();
+        setStatus("Ready.", "info");
+      };
+
+      await initialise();
     </script>
   </body>
 </html>
