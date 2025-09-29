@@ -1,458 +1,1238 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Passkeys Middleware Demo</title>
+    <title>ID Central</title>
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgo=" />
     <style>
       :root {
         color-scheme: light dark;
-        font-family: 'Inter', system-ui, sans-serif;
+        font-family:
+          "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+        --surface: rgba(255, 255, 255, 0.86);
+        --surface-strong: rgba(255, 255, 255, 0.97);
+        --surface-muted: rgba(15, 23, 42, 0.08);
+        --primary: #2563eb;
+        --primary-strong: #1d4ed8;
+        --danger: #dc2626;
+        --danger-strong: #b91c1c;
+        --text: #0f172a;
+        --text-muted: rgba(15, 23, 42, 0.68);
+        --border: rgba(15, 23, 42, 0.12);
+        --border-strong: rgba(15, 23, 42, 0.2);
+        --radius-lg: 20px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+        line-height: 1.5;
       }
       body {
         margin: 0;
-        padding: 0;
-        background: radial-gradient(circle at top, rgba(99, 102, 241, 0.18), transparent 55%), radial-gradient(circle at bottom, rgba(16, 185, 129, 0.18), transparent 55%);
+        padding: 3rem 1.25rem 4rem;
+        background:
+          radial-gradient(
+            circle at top left,
+            rgba(59, 130, 246, 0.18),
+            transparent 55%
+          ),
+          radial-gradient(
+          circle at bottom right,
+          rgba(16, 185, 129, 0.18),
+          transparent 55%
+        ),
+          linear-gradient(180deg, #f1f5f9, #e2e8f0);
         min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        color: var(--text);
       }
-      main {
-        background: rgba(255, 255, 255, 0.85);
-        color: #111;
+      @media (prefers-color-scheme: dark) {
+        body {
+          background:
+            radial-gradient(
+              circle at top left,
+              rgba(59, 130, 246, 0.3),
+              transparent 60%
+            ),
+            radial-gradient(
+            circle at bottom right,
+            rgba(16, 185, 129, 0.28),
+            transparent 60%
+          ),
+            linear-gradient(180deg, #020617, #0f172a);
+          color: rgba(226, 232, 240, 0.94);
+        }
+        :root {
+          --surface: rgba(15, 23, 42, 0.85);
+          --surface-strong: rgba(15, 23, 42, 0.96);
+          --surface-muted: rgba(226, 232, 240, 0.08);
+          --text: rgba(226, 232, 240, 0.94);
+          --text-muted: rgba(148, 163, 184, 0.9);
+          --border: rgba(148, 163, 184, 0.18);
+          --border-strong: rgba(148, 163, 184, 0.28);
+        }
+      }
+      main.page {
         max-width: 960px;
-        width: calc(100% - 2rem);
-        margin: 2rem auto;
-        padding: 2.5rem;
-        border-radius: 24px;
-        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
-        backdrop-filter: blur(12px);
-      }
-      h1 {
-        font-size: clamp(2rem, 3vw, 2.4rem);
-        margin-top: 0;
-      }
-      form {
-        margin-block: 1.5rem;
-        display: grid;
-        gap: 1rem;
-      }
-      fieldset {
-        border: 1px solid rgba(15, 23, 42, 0.08);
-        border-radius: 16px;
-        padding: 1.5rem;
-        background: rgba(255, 255, 255, 0.92);
-      }
-      legend {
-        font-weight: 600;
-        padding: 0 0.5rem;
-      }
-      label {
-        font-weight: 600;
+        margin: 0 auto;
         display: flex;
         flex-direction: column;
-        gap: 0.4rem;
-        font-size: 0.95rem;
+        gap: 2rem;
       }
-      input[type="text"],
-      input[type="password"],
-      input[type="search"] {
-        border-radius: 12px;
-        border: 1px solid rgba(71, 85, 105, 0.35);
-        padding: 0.75rem 1rem;
-        font-size: 1rem;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      .page-header {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 26px 40px rgba(15, 23, 42, 0.18);
+        padding: clamp(1.75rem, 2vw + 1.25rem, 2.5rem);
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
       }
-      input:focus {
-        outline: none;
-        border-color: rgba(99, 102, 241, 0.6);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+      @media (min-width: 768px) {
+        .page-header {
+          flex-direction: row;
+          align-items: flex-start;
+          justify-content: space-between;
+        }
       }
-      button {
-        appearance: none;
-        border: none;
-        border-radius: 999px;
-        padding: 0.75rem 1.8rem;
-        font-size: 1rem;
+      .brand {
+        display: grid;
+        gap: 0.75rem;
+      }
+      .brand .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.75rem;
         font-weight: 600;
-        cursor: pointer;
-        background: linear-gradient(120deg, rgba(99, 102, 241, 0.9), rgba(59, 130, 246, 0.9));
-        color: white;
-        box-shadow: 0 8px 18px rgba(59, 130, 246, 0.35);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        color: var(--text-muted);
+        margin: 0;
       }
-      button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 12px 26px rgba(59, 130, 246, 0.45);
+      .brand h1 {
+        font-size: clamp(2rem, 3vw, 2.6rem);
+        margin: 0;
       }
-      button:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
+      .brand .lead {
+        font-size: clamp(1rem, 2.2vw, 1.1rem);
+        margin: 0;
+        color: var(--text-muted);
       }
-      .actions {
+      .status {
+        border-radius: var(--radius-md);
+        padding: 1rem 1.25rem;
+        background: var(--surface-muted);
+        font-weight: 500;
+        border: 1px solid transparent;
+      }
+      .status[data-status="success"] {
+        background: rgba(34, 197, 94, 0.15);
+        color: #047857;
+        border-color: rgba(34, 197, 94, 0.2);
+      }
+      .status[data-status="error"] {
+        background: rgba(248, 113, 113, 0.16);
+        color: var(--danger-strong);
+        border-color: rgba(248, 113, 113, 0.26);
+      }
+      .status[data-status="info"] {
+        background: var(--surface-muted);
+        color: var(--text-muted);
+        border-color: var(--border);
+      }
+      .panel {
+        display: grid;
+        gap: 1.75rem;
+      }
+      .card {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+        padding: clamp(1.5rem, 2vw + 1rem, 2.25rem);
+        display: grid;
+        gap: 1.5rem;
+        border: 1px solid var(--border);
+      }
+      .section-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      @media (min-width: 640px) {
+        .section-header {
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: flex-start;
+        }
+      }
+      .section-header h2,
+      .section-header h3 {
+        margin: 0;
+      }
+      .section-actions {
         display: flex;
         gap: 0.75rem;
         flex-wrap: wrap;
       }
-      .status {
-        border-radius: 12px;
-        padding: 1rem;
-        background: rgba(15, 23, 42, 0.08);
-        color: #0f172a;
-        margin-block: 1rem;
-        min-height: 3rem;
+      .hint {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+      }
+      form.stack {
+        display: grid;
+        gap: 1.25rem;
+      }
+      .field {
+        display: grid;
+        gap: 0.5rem;
+        font-size: 0.95rem;
+      }
+      .field span {
+        font-weight: 600;
+      }
+      input[type="text"],
+      input[type="search"] {
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-strong);
+        background: var(--surface-strong);
+        padding: 0.8rem 1rem;
+        font-size: 1rem;
+        color: inherit;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+      }
+      input:focus {
+        outline: none;
+        border-color: rgba(37, 99, 235, 0.45);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+      }
+      button {
+        appearance: none;
+        border-radius: var(--radius-md);
+        border: 1px solid transparent;
+        padding: 0.7rem 1.4rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          transform 0.15s ease,
+          box-shadow 0.15s ease,
+          background-color 0.2s ease,
+          border-color 0.2s ease;
+      }
+      button.primary {
+        background: var(--primary);
+        color: #fff;
+        box-shadow: 0 18px 30px rgba(37, 99, 235, 0.26);
+      }
+      button.primary:hover {
+        background: var(--primary-strong);
+        transform: translateY(-1px);
+        box-shadow: 0 22px 38px rgba(37, 99, 235, 0.3);
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--text);
+        border-color: var(--border-strong);
+      }
+      button.secondary:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      button.secondary.accent {
+        border-color: rgba(37, 99, 235, 0.4);
+        color: var(--primary);
+        background: rgba(37, 99, 235, 0.1);
+      }
+      button.secondary.accent:hover {
+        background: rgba(37, 99, 235, 0.16);
+      }
+      button.danger {
+        background: var(--danger);
+        color: #fff;
+        border-color: var(--danger);
+        box-shadow: 0 16px 28px rgba(220, 38, 38, 0.28);
+      }
+      button.danger:hover {
+        background: var(--danger-strong);
+      }
+      button.danger.outline {
+        background: rgba(220, 38, 38, 0.12);
+        color: var(--danger-strong);
+        border-color: rgba(220, 38, 38, 0.24);
+        box-shadow: none;
+      }
+      button.danger.outline:hover {
+        background: rgba(220, 38, 38, 0.18);
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+        transform: none;
+        box-shadow: none;
+      }
+      .button-row {
         display: flex;
-        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
       }
-      .status[data-status="success"] {
-        background: rgba(16, 185, 129, 0.12);
-        color: #047857;
+      .button-row.align-start {
+        justify-content: flex-start;
       }
-      .status[data-status="error"] {
-        background: rgba(239, 68, 68, 0.12);
-        color: #b91c1c;
+      .button-row.align-end {
+        justify-content: flex-end;
       }
       .credentials {
         list-style: none;
         padding: 0;
         margin: 0;
         display: grid;
-        gap: 0.75rem;
+        gap: 1rem;
       }
       .credentials li {
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.92);
-        border: 1px solid rgba(15, 23, 42, 0.08);
-        padding: 1rem 1.25rem;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        background: var(--surface-strong);
+        padding: 1.2rem 1.4rem;
         display: grid;
-        gap: 0.4rem;
+        gap: 0.8rem;
+      }
+      .credentials li.empty {
+        color: var(--text-muted);
+        font-style: italic;
       }
       .credential-header {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: baseline;
         gap: 0.75rem;
       }
       .credential-header strong {
         font-size: 1.05rem;
       }
       .credential-meta {
-        font-size: 0.85rem;
-        color: rgba(30, 41, 59, 0.85);
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem 1rem;
-      }
-      .credential-meta span {
-        display: inline-flex;
-        align-items: center;
+        display: grid;
         gap: 0.35rem;
-      }
-      .credential-meta span::before {
-        content: '•';
-        color: rgba(99, 102, 241, 0.75);
-      }
-      .credential-meta span:first-child::before {
-        content: '';
-        width: 0;
-      }
-      .credentials button {
-        background: rgba(239, 68, 68, 0.15);
-        color: #b91c1c;
-        box-shadow: none;
-        padding: 0.4rem 1rem;
-      }
-      .credentials button:hover {
-        background: rgba(239, 68, 68, 0.22);
-        transform: none;
-      }
-      footer {
-        margin-top: 2rem;
         font-size: 0.85rem;
-        color: rgba(30, 41, 59, 0.75);
-        text-align: center;
+        color: var(--text-muted);
+      }
+      @media (min-width: 720px) {
+        .credential-meta {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .credential-meta div {
+        display: flex;
+        gap: 0.45rem;
+      }
+      .credential-meta div span {
+        font-weight: 600;
+        color: var(--text);
+        min-width: 5.5rem;
+      }
+      dialog {
+        border: none;
+        border-radius: var(--radius-lg);
+        box-shadow: 0 32px 80px rgba(15, 23, 42, 0.32);
+        padding: 0;
+        max-width: 420px;
+        width: min(92vw, 420px);
+        background: var(--surface-strong);
+        color: inherit;
+      }
+      dialog::backdrop {
+        background: rgba(15, 23, 42, 0.45);
+      }
+      .dialog-form {
+        display: grid;
+        gap: 1.25rem;
+        padding: 1.8rem;
+      }
+      .dialog-form h2 {
+        margin: 0;
+        font-size: 1.35rem;
+      }
+      [hidden] {
+        display: none !important;
       }
     </style>
   </head>
   <body>
-    <main>
-      <h1>Passkeys Middleware Demo</h1>
-      <p>
-        このデモは <code>@passkeys-middleware/hono</code> を使って作られた Hono アプリです。
-        一つのアカウントに複数のパスキーを登録し、それぞれにニックネームを設定できます。
-      </p>
+    <main class="page">
+      <header class="page-header">
+        <div class="brand">
+          <h1 id="brand"></h1>
+        </div>
+        <div class="status" id="status" data-status="info" role="status">
+          準備が整いました。
+        </div>
+      </header>
 
-      <div class="status" id="status" data-status="info">準備中…</div>
-
-      <form id="register-form">
-        <fieldset>
-          <legend>アカウント</legend>
-          <label>
-            ユーザー名
-            <input id="username" type="text" name="username" autocomplete="username" placeholder="yamada" required />
-          </label>
-          <label>
-            表示名
-            <input id="displayName" type="text" name="displayName" autocomplete="name" placeholder="山田 太郎" />
-          </label>
-        </fieldset>
-
-        <fieldset>
-          <legend>パスキー登録</legend>
-          <label>
-            ニックネーム
-            <input id="nickname" type="text" name="nickname" placeholder="仕事用 iPhone" required />
-          </label>
-          <div class="actions">
-            <button type="submit">パスキーを登録</button>
-            <button type="button" id="refresh-credentials">登録済みの確認</button>
-          </div>
-        </fieldset>
-      </form>
-
-      <form id="authenticate-form">
-        <fieldset>
-          <legend>サインイン</legend>
-          <p>上記のユーザー名でパスキー認証を行います。</p>
-          <div class="actions">
-            <button type="submit">パスキーでサインイン</button>
-          </div>
-        </fieldset>
-      </form>
-
-      <section>
-        <h2>登録済みのパスキー</h2>
-        <ul class="credentials" id="credentials">
-          <li>まだパスキーが登録されていません。</li>
-        </ul>
+      <section id="guest-view" class="panel">
+        <div class="card">
+          <h2>パスキーでサインイン</h2>
+          <form id="guest-form" class="stack" autocomplete="off">
+            <label class="field" for="guest-username">
+              <span>ユーザー名</span>
+              <input
+                id="guest-username"
+                type="text"
+                name="username"
+                autocomplete="username webauthn"
+                placeholder="例: your-name"
+                required
+              />
+            </label>
+            <div class="button-row align-start">
+              <button type="submit" class="primary">サインイン</button>
+              <button
+                type="button"
+                id="open-create-account"
+                class="secondary"
+              >
+                アカウントを作成
+              </button>
+            </div>
+          </form>
+          <p id="conditional-status" class="hint" data-state="pending">
+            パスキーの自動入力に対応しているか確認しています…
+          </p>
+        </div>
       </section>
+
+      <section id="account-view" class="panel" hidden>
+        <div class="card">
+          <header class="section-header">
+            <div>
+              <h2>プロフィール情報</h2>
+              <p class="hint" id="account-summary">
+                サインイン中のユーザー情報が表示されます。
+              </p>
+            </div>
+            <div class="section-actions">
+              <button type="button" id="logout" class="secondary">
+                ログアウト
+              </button>
+              <button type="button" id="delete-account" class="danger">
+                アカウントを削除
+              </button>
+            </div>
+          </header>
+          <form id="profile-form" class="stack">
+            <label class="field" for="account-username">
+              <span>ユーザー名</span>
+              <input
+                id="account-username"
+                type="text"
+                name="username"
+                autocomplete="username"
+                required
+              />
+            </label>
+            <label class="field" for="account-display-name">
+              <span>表示名</span>
+              <input
+                id="account-display-name"
+                type="text"
+                name="displayName"
+                autocomplete="name"
+              />
+            </label>
+            <div class="button-row align-start">
+              <button type="submit" class="primary">変更を保存</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <header class="section-header">
+            <div>
+              <h2>パスキー</h2>
+              <p class="hint">
+                新しいデバイスを登録したり、不要な鍵を削除できます。
+              </p>
+            </div>
+            <div class="section-actions">
+              <button
+                type="button"
+                id="add-passkey"
+                class="secondary accent"
+              >
+                別の鍵を追加
+              </button>
+            </div>
+          </header>
+          <ul id="credential-list" class="credentials">
+            <li class="empty">サインインするとパスキーが表示されます。</li>
+          </ul>
+        </div>
+      </section>
+
+      <dialog id="passkey-dialog">
+        <form id="passkey-form" class="dialog-form">
+          <h2 id="passkey-dialog-title">パスキーを追加</h2>
+          <p id="passkey-dialog-description" class="hint">
+            後から分かるように鍵に名前を付けてください。
+          </p>
+          <label class="field" id="passkey-display-name-field">
+            <span>表示名</span>
+            <input
+              id="passkey-display-name"
+              type="text"
+              name="displayName"
+              autocomplete="name"
+            />
+          </label>
+          <label class="field" for="passkey-nickname">
+            <span>パスキーのニックネーム</span>
+            <input
+              id="passkey-nickname"
+              type="text"
+              name="nickname"
+              placeholder="仕事用ノートPC"
+              required
+            />
+          </label>
+          <div class="button-row align-end">
+            <button type="button" id="cancel-passkey-dialog" class="secondary">
+              キャンセル
+            </button>
+            <button type="submit" id="submit-passkey-dialog" class="primary">
+              続行
+            </button>
+          </div>
+        </form>
+      </dialog>
     </main>
 
-    <script src="/webauthn/client.js" defer></script>
     <script type="module">
-      const statusEl = document.getElementById('status');
-      const registerForm = document.getElementById('register-form');
-      const authenticateForm = document.getElementById('authenticate-form');
-      const usernameInput = document.getElementById('username');
-      const displayNameInput = document.getElementById('displayName');
-      const nicknameInput = document.getElementById('nickname');
-      const credentialsList = document.getElementById('credentials');
-      const refreshButton = document.getElementById('refresh-credentials');
+      import { createClient } from "/webauthn/client.js";
 
-      const waitForWebAuthn = () =>
-        new Promise((resolve, reject) => {
-          const started = Date.now();
-          const check = () => {
-            if (window.SimpleWebAuthnBrowser) {
-              resolve(window.SimpleWebAuthnBrowser);
-              return;
-            }
-            if (Date.now() - started > 5000) {
-              reject(new Error('SimpleWebAuthn クライアントの読み込みに失敗しました'));
-              return;
-            }
-            setTimeout(check, 50);
-          };
-          check();
-        });
+      const client = createClient();
 
-      const escapeHtml = (value) =>
-        value
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;')
-          .replaceAll('"', '&quot;')
-          .replaceAll("'", '&#39;');
+      const storageKey = "passkeys.currentUsername";
 
-      const toDateTime = (timestamp) => {
-        try {
-          return new Date(timestamp).toLocaleString();
-        } catch {
-          return '-';
-        }
+      const statusEl = document.getElementById("status");
+      const guestView = document.getElementById("guest-view");
+      const accountView = document.getElementById("account-view");
+      const guestForm = document.getElementById("guest-form");
+      const guestUsernameInput = document.getElementById(
+        "guest-username",
+      );
+      const conditionalStatus = document.getElementById(
+        "conditional-status",
+      );
+      const createAccountButton = document.getElementById(
+        "open-create-account",
+      );
+      const accountSummary = document.getElementById("account-summary");
+      const logoutButton = document.getElementById("logout");
+      const deleteAccountButton = document.getElementById(
+        "delete-account",
+      );
+      const profileForm = document.getElementById("profile-form");
+      const accountUsernameInput = document.getElementById(
+        "account-username",
+      );
+      const accountDisplayNameInput = document.getElementById(
+        "account-display-name",
+      );
+      const profileSubmitButton = profileForm.querySelector(
+        'button[type="submit"]',
+      );
+      const addPasskeyButton = document.getElementById("add-passkey");
+      const credentialsList = document.getElementById(
+        "credential-list",
+      );
+      const passkeyDialog = document.getElementById("passkey-dialog");
+      const passkeyForm = document.getElementById("passkey-form");
+      const passkeyDialogTitle = document.getElementById(
+        "passkey-dialog-title",
+      );
+      const passkeyDialogDescription = document.getElementById(
+        "passkey-dialog-description",
+      );
+      const passkeyDisplayNameField = document.getElementById(
+        "passkey-display-name-field",
+      );
+      const passkeyDisplayNameInput = document.getElementById(
+        "passkey-display-name",
+      );
+      const passkeyNicknameInput = document.getElementById(
+        "passkey-nickname",
+      );
+      const passkeyDialogCancel = document.getElementById(
+        "cancel-passkey-dialog",
+      );
+      const passkeyDialogSubmit = document.getElementById(
+        "submit-passkey-dialog",
+      );
+
+      const state = {
+        account: null,
+        credentials: [],
+        conditionalAvailable: null,
       };
 
-      const log = (message, type = 'info') => {
+      const setStatus = (message, type = "info") => {
         statusEl.textContent = message;
         statusEl.dataset.status = type;
       };
 
-      const resolveRedirectTarget = () => {
+      const formatDate = (value) => {
         try {
-          const params = new URLSearchParams(window.location.search);
-          const candidate = params.get('redirectTo');
-          if (candidate && candidate.startsWith('/')) {
-            return candidate;
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) {
+            return "-";
           }
+          return date.toLocaleString();
         } catch {
-          // ignore parsing errors
+          return "-";
         }
-        return window.location.pathname || '/';
       };
 
-      const fetchJson = async (input, init = {}) => {
-        const response = await fetch(input, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(init.headers ?? {}),
-          },
-          credentials: 'include',
-          ...init,
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || response.statusText);
+      const storeUsername = (value) => {
+        try {
+          if (value) {
+            localStorage.setItem(storageKey, value);
+          }
+        } catch {
+          // ignore storage failures
         }
-        if (response.status === 204) {
-          return null;
+      };
+
+      const getStoredUsername = () => {
+        try {
+          return localStorage.getItem(storageKey) ?? "";
+        } catch {
+          return "";
         }
-        return response.json();
+      };
+
+      const updateViews = () => {
+        const hasAccount = Boolean(state.account);
+        guestView.hidden = hasAccount;
+        accountView.hidden = !hasAccount;
       };
 
       const renderCredentials = (credentials) => {
-        credentialsList.innerHTML = '';
+        credentialsList.innerHTML = "";
+        if (!state.account) {
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent = "サインインするとパスキーが表示されます。";
+          credentialsList.append(li);
+          return;
+        }
+        if (!credentials.length) {
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent = "まだパスキーが登録されていません。";
+          credentialsList.append(li);
+          return;
+        }
         for (const credential of credentials) {
-          const li = document.createElement('li');
-          const encodedId = encodeURIComponent(credential.id);
-          li.innerHTML = `
-            <div class="credential-header">
-              <strong>${escapeHtml(credential.nickname)}</strong>
-              <button type="button" data-credential="${encodedId}">削除</button>
-            </div>
-            <div class="credential-meta">
-              <span>ID: ${escapeHtml(credential.id)}</span>
-              <span>更新: ${escapeHtml(toDateTime(credential.updatedAt))}</span>
-              <span>種類: ${escapeHtml(credential.deviceType ?? '不明')}</span>
-              <span>バックアップ: ${credential.backedUp ? 'はい' : 'いいえ'}</span>
-            </div>
-          `;
-          li.querySelector('button')?.addEventListener('click', async (event) => {
-            const username = usernameInput.value.trim();
-            if (!username) {
-              log('ユーザー名を入力してください。', 'error');
-              return;
-            }
-            const target = event.currentTarget;
-            const credentialId = target?.dataset.credential ?? encodedId;
-            try {
-              await fetchJson(`/webauthn/credentials/${credentialId}?username=${encodeURIComponent(username)}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-              });
-              log(`パスキー「${credential.nickname}」を削除しました。`, 'success');
-              await updateCredentials();
-            } catch (error) {
-              log(`削除に失敗しました: ${error.message}`, 'error');
-            }
-          });
-          credentialsList.appendChild(li);
+          const li = document.createElement("li");
+
+          const header = document.createElement("div");
+          header.className = "credential-header";
+          const title = document.createElement("strong");
+          title.textContent = credential.nickname ||
+            "名前のないデバイス";
+          header.append(title);
+
+          const deleteButton = document.createElement("button");
+          deleteButton.type = "button";
+          deleteButton.className = "danger outline";
+          deleteButton.dataset.credentialId = credential.id;
+          deleteButton.textContent = "削除";
+          header.append(deleteButton);
+          li.append(header);
+
+          const meta = document.createElement("div");
+          meta.className = "credential-meta";
+
+          const rows = [
+            ["デバイス", credential.deviceType ?? "不明"],
+            ["バックアップ", credential.backedUp ? "はい" : "いいえ"],
+            ["追加日", formatDate(credential.createdAt)],
+            ["更新日", formatDate(credential.updatedAt)],
+            [
+              "ID",
+              credential.id.length > 14
+                ? `${credential.id.slice(0, 6)}…${
+                  credential.id.slice(-6)
+                }`
+                : credential.id,
+            ],
+          ];
+
+          for (const [label, value] of rows) {
+            const row = document.createElement("div");
+            const labelEl = document.createElement("span");
+            labelEl.textContent = `${label}`;
+            const valueEl = document.createElement("span");
+            valueEl.textContent = `${value}`;
+            valueEl.style.fontWeight = "500";
+            row.append(labelEl, valueEl);
+            meta.append(row);
+          }
+
+          li.append(meta);
+          credentialsList.append(li);
         }
       };
 
-      const updateCredentials = async () => {
-        const username = usernameInput.value.trim();
-        if (!username) {
-          credentialsList.innerHTML = '<li>ユーザー名を入力すると登録済みのパスキーが表示されます。</li>';
+      const renderAccount = () => {
+        const account = state.account;
+        if (!account) {
+          accountSummary.textContent =
+            "サインインしてアカウントを管理しましょう。";
+          accountUsernameInput.value = "";
+          accountDisplayNameInput.value = "";
+          renderCredentials([]);
+          updateViews();
           return;
+        }
+        const { user, credentials } = account;
+        accountSummary.textContent = user.displayName
+          ? `${user.displayName} · ${user.username}`
+          : user.username;
+        accountUsernameInput.value = user.username;
+        accountDisplayNameInput.value = user.displayName ?? "";
+        renderCredentials(credentials);
+        updateViews();
+      };
+
+      const setAccount = (account) => {
+        if (account && account.user) {
+          state.account = {
+            user: account.user,
+            credentials: Array.isArray(account.credentials)
+              ? account.credentials
+              : [],
+          };
+          state.credentials = state.account.credentials;
+        } else {
+          state.account = null;
+          state.credentials = [];
+        }
+        renderAccount();
+      };
+
+      const getSession = async () => {
+        try {
+          const response = await fetch("/session", {
+            credentials: "include",
+          });
+          if (!response.ok) {
+            return null;
+          }
+          return await response.json();
+        } catch {
+          return null;
+        }
+      };
+
+      const extractErrorMessage = async (response) => {
+        try {
+          const json = await response.clone().json();
+          if (json && typeof json === "object" && "message" in json) {
+            const message = json.message;
+            if (typeof message === "string" && message.trim()) {
+              return message.trim();
+            }
+          }
+        } catch {
+          // ignore
         }
         try {
-          const data = await fetchJson(`/webauthn/credentials?username=${encodeURIComponent(username)}`);
-          const credentials = Array.isArray(data?.credentials) ? data.credentials : [];
-          if (!credentials.length) {
-            credentialsList.innerHTML = '<li>登録済みのパスキーはありません。</li>';
-            return;
+          const text = await response.text();
+          if (text.trim()) {
+            return text.trim();
           }
-          renderCredentials(credentials);
+        } catch {
+          // ignore
+        }
+        return `リクエストがステータス${response.status}で失敗しました`;
+      };
+
+      const fetchAccount = async (username) => {
+        const normalized = username.trim();
+        if (!normalized) {
+          throw new Error("ユーザー名は必須です。");
+        }
+        const response = await fetch(
+          `/webauthn/credentials?username=${
+            encodeURIComponent(normalized)
+          }`,
+          { credentials: "include" },
+        );
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error("アカウントが見つかりません。");
+          }
+          throw new Error(await extractErrorMessage(response));
+        }
+        const data = await response.json();
+        if (!data || typeof data !== "object" || !data.user) {
+          throw new Error("アカウントが見つかりません。");
+        }
+        const credentials = Array.isArray(data.credentials)
+          ? data.credentials
+          : [];
+        return { user: data.user, credentials };
+      };
+
+      const loadAccount = async (username) => {
+        const account = await fetchAccount(username);
+        setAccount(account);
+        storeUsername(account.user.username);
+        return account;
+      };
+
+      const refreshAccount = async () => {
+        if (!state.account) {
+          return;
+        }
+        const username = state.account.user.username;
+        try {
+          await loadAccount(username);
         } catch (error) {
-          log(`登録済みパスキーの取得に失敗しました: ${error.message}`, 'error');
+          setStatus(
+            error.message ?? "アカウントを更新できません。",
+            "error",
+          );
         }
       };
 
-      const webauthn = await waitForWebAuthn();
-      log('準備が整いました。');
+      const clearAccount = () => {
+        setAccount(null);
+      };
 
-      registerForm.addEventListener('submit', async (event) => {
+      const authenticateWithPasskey = async (username) => {
+        setStatus("パスキーの操作を待機しています…");
+        await client.authenticate({ username });
+        await loadAccount(username);
+        setStatus("サインインに成功しました。", "success");
+      };
+
+      const checkConditionalMediation = async () => {
+        if (
+          typeof PublicKeyCredential === "undefined" ||
+          typeof PublicKeyCredential.isConditionalMediationAvailable !==
+            "function"
+        ) {
+          conditionalStatus.textContent =
+            "ご利用のブラウザーはまだパスキーの自動入力に対応していません。";
+          conditionalStatus.dataset.state = "unsupported";
+          return false;
+        }
+        try {
+          const available = await PublicKeyCredential
+            .isConditionalMediationAvailable();
+          state.conditionalAvailable = available;
+          conditionalStatus.textContent = available
+            ? "このブラウザーではパスキーの自動入力が利用できます。"
+            : "パスキーの自動入力は無効です。手動でサインインできます。";
+          conditionalStatus.dataset.state = available
+            ? "available"
+            : "absent";
+          return available;
+        } catch (error) {
+          console.error(
+            "Failed to detect conditional mediation:",
+            error,
+          );
+          conditionalStatus.textContent =
+            "パスキーの自動入力に対応しているか判定できませんでした。";
+          conditionalStatus.dataset.state = "error";
+          return false;
+        }
+      };
+
+      guestForm.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const username = usernameInput.value.trim();
-        const nickname = nicknameInput.value.trim();
-        if (!username) {
-          log('ユーザー名を入力してください。', 'error');
+        if (guestForm.dataset.loading === "true") {
           return;
         }
+        const username = guestUsernameInput.value.trim();
+        if (!username) {
+          setStatus("先にユーザー名を入力してください。", "error");
+          guestUsernameInput.focus();
+          return;
+        }
+        guestForm.dataset.loading = "true";
+        try {
+          await authenticateWithPasskey(username);
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `サインインに失敗しました: ${error.message}`
+              : "サインインがキャンセルされたか失敗しました。",
+            "error",
+          );
+        } finally {
+          guestForm.dataset.loading = "false";
+        }
+      });
+
+      guestUsernameInput.addEventListener("input", () => {
+        storeUsername(guestUsernameInput.value.trim());
+      });
+
+      const openPasskeyDialog = (mode) => {
+        passkeyDialog.dataset.mode = mode;
+        if (mode === "create") {
+          passkeyDialogTitle.textContent = "アカウントを作成";
+          passkeyDialogDescription.textContent =
+            "このユーザー名に最初のパスキーを登録します。";
+          passkeyDisplayNameField.hidden = false;
+          passkeyDialogSubmit.textContent = "アカウントを作成";
+          passkeyDisplayNameInput.value = guestUsernameInput.value
+            .trim();
+        } else {
+          passkeyDialogTitle.textContent = "別のパスキーを追加";
+          passkeyDialogDescription.textContent =
+            "後から分かるように鍵に名前を付けてください。";
+          passkeyDisplayNameField.hidden = true;
+          passkeyDialogSubmit.textContent = "パスキーを保存";
+          if (state.account?.user?.displayName) {
+            passkeyDisplayNameInput.value =
+              state.account.user.displayName;
+          } else {
+            passkeyDisplayNameInput.value = "";
+          }
+        }
+        passkeyNicknameInput.value = "";
+        try {
+          passkeyDialog.showModal();
+          passkeyNicknameInput.focus();
+        } catch (error) {
+          console.error("Unable to open dialog:", error);
+        }
+      };
+
+      createAccountButton.addEventListener("click", () => {
+        if (!guestUsernameInput.value.trim()) {
+          setStatus(
+            "アカウントを作成するにはユーザー名を入力してください。",
+            "error",
+          );
+          guestUsernameInput.focus();
+          return;
+        }
+        openPasskeyDialog("create");
+      });
+
+      addPasskeyButton.addEventListener("click", () => {
+        if (!state.account) {
+          setStatus(
+            "新しいパスキーを追加する前にサインインしてください。",
+            "error",
+          );
+          return;
+        }
+        openPasskeyDialog("add");
+      });
+
+      passkeyDialogCancel.addEventListener("click", () => {
+        passkeyDialog.close();
+      });
+
+      passkeyDialog.addEventListener("close", () => {
+        passkeyForm.dataset.loading = "false";
+      });
+
+      passkeyForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (passkeyForm.dataset.loading === "true") {
+          return;
+        }
+        const nickname = passkeyNicknameInput.value.trim();
         if (!nickname) {
-          log('ニックネームを入力してください。', 'error');
+          setStatus(
+            "パスキーのニックネームを入力してください。",
+            "error",
+          );
+          passkeyNicknameInput.focus();
           return;
         }
-        const displayName = displayNameInput.value.trim();
+        const mode = passkeyDialog.dataset.mode ?? "add";
+        passkeyForm.dataset.loading = "true";
+        passkeyDialogSubmit.disabled = true;
         try {
-          log('パスキー登録オプションを取得しています…');
-          const options = await fetchJson('/webauthn/register/options', {
-            method: 'POST',
-            body: JSON.stringify({ username, displayName }),
-          });
-          log('パスキー登録を開始します…');
-          const attestationResponse = await webauthn.startRegistration(options);
-          log('登録結果を検証しています…');
-          await fetchJson('/webauthn/register/verify', {
-            method: 'POST',
-            body: JSON.stringify({ username, nickname, credential: attestationResponse }),
-          });
-          log(`「${nickname}」としてパスキーを登録しました。`, 'success');
-          nicknameInput.value = '';
-          await updateCredentials();
+          if (mode === "create") {
+            const username = guestUsernameInput.value.trim();
+            if (!username) {
+              throw new Error("ユーザー名は必須です。");
+            }
+            const displayName = passkeyDisplayNameInput.value.trim();
+            setStatus("セキュリティキーの操作を待機しています…");
+            await client.register({
+              username,
+              displayName: displayName || undefined,
+              nickname,
+            });
+            setStatus(
+              `パスキー「${nickname}」を登録しました。`,
+              "success",
+            );
+            passkeyDialog.close();
+            await authenticateWithPasskey(username);
+          } else {
+            if (!state.account) {
+              throw new Error("サインイン中のアカウントがありません。");
+            }
+            const username = state.account.user.username;
+            setStatus("セキュリティキーの操作を待機しています…");
+            await client.register({
+              username,
+              displayName: state.account.user.displayName || undefined,
+              nickname,
+            });
+            setStatus(
+              `パスキー「${nickname}」を追加しました。`,
+              "success",
+            );
+            passkeyDialog.close();
+            await refreshAccount();
+          }
         } catch (error) {
-          log(`パスキー登録に失敗しました: ${error.message}`, 'error');
+          let message = "パスキーの設定に失敗しました。";
+          let statusType = "error";
+          if (error instanceof DOMException) {
+            switch (error.name) {
+              case "NotAllowedError":
+                message =
+                  "このデバイスには既にこのアカウントのパスキーがあります。別の認証器を使用するか既存の鍵を削除してください。";
+                break;
+              case "InvalidStateError":
+                message =
+                  "この認証器は既にこのアカウントに登録されているため要求を拒否しました。";
+                break;
+              case "AbortError":
+                message = "パスキーの設定がキャンセルされました。";
+                statusType = "info";
+                break;
+              default:
+                if (error.message?.trim()) {
+                  message =
+                    `パスキーの設定に失敗しました: ${error.message}`;
+                }
+                break;
+            }
+          } else if (error instanceof Error && error.message.trim()) {
+            message = `パスキーの設定に失敗しました: ${error.message}`;
+          }
+          setStatus(message, statusType);
+        } finally {
+          passkeyDialogSubmit.disabled = false;
+          passkeyForm.dataset.loading = "false";
         }
       });
 
-      const redirectTarget = resolveRedirectTarget();
-
-      authenticateForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const username = usernameInput.value.trim();
-        if (!username) {
-          log('ユーザー名を入力してください。', 'error');
+      credentialsList.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
           return;
         }
+        const button = target.closest("button[data-credential-id]");
+        if (!(button instanceof HTMLButtonElement)) {
+          return;
+        }
+        if (!state.account) {
+          setStatus(
+            "パスキーを管理する前にサインインしてください。",
+            "error",
+          );
+          return;
+        }
+        const credentialId = button.dataset.credentialId;
+        if (!credentialId) {
+          return;
+        }
+        if (button.dataset.loading === "true") {
+          return;
+        }
+        button.dataset.loading = "true";
+        button.disabled = true;
         try {
-          log('認証オプションを取得しています…');
-          const options = await fetchJson('/webauthn/authenticate/options', {
-            method: 'POST',
-            body: JSON.stringify({ username, redirectTo: redirectTarget }),
+          setStatus("パスキーを削除しています…");
+          await client.delete({
+            username: state.account.user.username,
+            credentialId,
           });
-          log('パスキー認証を開始します…');
-          const assertionResponse = await webauthn.startAuthentication(options);
-          log('認証結果を検証しています…');
-          const verification = await fetchJson('/webauthn/authenticate/verify', {
-            method: 'POST',
-            body: JSON.stringify({
-              username,
-              credential: assertionResponse,
-              redirectTo: redirectTarget,
-            }),
+          setStatus("パスキーを削除しました。", "success");
+          await refreshAccount();
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `パスキーの削除に失敗しました: ${error.message}`
+              : "パスキーの削除に失敗しました。",
+            "error",
+          );
+        } finally {
+          button.dataset.loading = "false";
+          button.disabled = false;
+        }
+      });
+
+      profileForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!state.account) {
+          setStatus(
+            "プロフィールを更新する前にサインインしてください。",
+            "error",
+          );
+          return;
+        }
+        if (profileForm.dataset.loading === "true") {
+          return;
+        }
+        const username = accountUsernameInput.value.trim();
+        const displayName = accountDisplayNameInput.value.trim();
+        const payload = {};
+        if (username && username !== state.account.user.username) {
+          payload.username = username;
+        }
+        if (displayName !== state.account.user.displayName) {
+          payload.displayName = displayName;
+        }
+        if (Object.keys(payload).length === 0) {
+          setStatus("保存する変更がありません。", "info");
+          return;
+        }
+        profileForm.dataset.loading = "true";
+        profileSubmitButton.disabled = true;
+        try {
+          const response = await fetch("/account", {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
           });
-          if (verification?.redirectTo) {
-            log('サインインに成功しました。リダイレクトします…', 'success');
-            window.location.assign(verification.redirectTo);
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          const data = await response.json();
+          if (!data || typeof data !== "object" || !data.user) {
+            throw new Error("サーバーから予期しない応答がありました。");
+          }
+          state.account = {
+            user: data.user,
+            credentials: state.credentials,
+          };
+          storeUsername(data.user.username);
+          renderAccount();
+          setStatus("プロフィールを更新しました。", "success");
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `プロフィールの保存に失敗しました: ${error.message}`
+              : "プロフィールの保存に失敗しました。",
+            "error",
+          );
+        } finally {
+          profileForm.dataset.loading = "false";
+          profileSubmitButton.disabled = false;
+        }
+      });
+
+      logoutButton.addEventListener("click", async () => {
+        if (logoutButton.dataset.loading === "true") {
+          return;
+        }
+        logoutButton.dataset.loading = "true";
+        logoutButton.disabled = true;
+        try {
+          const response = await fetch("/session/logout", {
+            method: "POST",
+            credentials: "include",
+          });
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          clearAccount();
+          setStatus("サインアウトしました。", "info");
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `サインアウトに失敗しました: ${error.message}`
+              : "サインアウトに失敗しました。",
+            "error",
+          );
+        } finally {
+          logoutButton.dataset.loading = "false";
+          logoutButton.disabled = false;
+        }
+      });
+
+      deleteAccountButton.addEventListener("click", async () => {
+        if (!state.account) {
+          setStatus(
+            "アカウントを削除する前にサインインしてください。",
+            "error",
+          );
+          return;
+        }
+        if (deleteAccountButton.dataset.loading === "true") {
+          return;
+        }
+        const confirmed = window.confirm(
+          "アカウントを削除するとすべてのパスキーが消えます。この操作は取り消せません。続行しますか？",
+        );
+        if (!confirmed) {
+          return;
+        }
+        deleteAccountButton.dataset.loading = "true";
+        deleteAccountButton.disabled = true;
+        try {
+          const response = await fetch("/account", {
+            method: "DELETE",
+            credentials: "include",
+          });
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          clearAccount();
+          setStatus("アカウントを削除しました。", "success");
+        } catch (error) {
+          setStatus(
+            error?.message
+              ? `アカウントの削除に失敗しました: ${error.message}`
+              : "アカウントの削除に失敗しました。",
+            "error",
+          );
+        } finally {
+          deleteAccountButton.dataset.loading = "false";
+          deleteAccountButton.disabled = false;
+        }
+      });
+
+      const initialise = async () => {
+        const stored = getStoredUsername();
+        if (stored) {
+          guestUsernameInput.value = stored;
+        }
+        await checkConditionalMediation();
+        const session = await getSession();
+        if (session?.isAuthenticated && session.user) {
+          try {
+            await loadAccount(session.user.username);
+            setStatus("おかえりなさい。", "success");
+            return;
+          } catch (error) {
+            console.error("Failed to restore session:", error);
+            clearAccount();
+            setStatus(
+              "セッションを復元できませんでした。もう一度サインインしてください。",
+              "error",
+            );
             return;
           }
-          log('サインインに成功しました。', 'success');
-        } catch (error) {
-          log(`サインインに失敗しました: ${error.message}`, 'error');
         }
-      });
+        clearAccount();
+        setStatus("準備が整いました。", "info");
+      };
 
-      refreshButton.addEventListener('click', async () => {
-        await updateCredentials();
-      });
-
-      usernameInput.addEventListener('change', updateCredentials);
-      usernameInput.addEventListener('blur', updateCredentials);
-
-      await updateCredentials();
+      await initialise();
     </script>
   </body>
 </html>

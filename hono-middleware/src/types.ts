@@ -42,18 +42,14 @@ export interface PasskeyStorage {
   saveCredential(credential: PasskeyCredential): Promise<void>;
   updateCredential(credential: PasskeyCredential): Promise<void>;
   deleteCredential?(credentialId: string): Promise<void>;
+  deleteUser?(userId: string): Promise<void>;
 }
 
 export type ChallengeType = "registration" | "authentication";
 
-export interface PasskeyChallengeStore {
-  setChallenge(
-    userId: string,
-    type: ChallengeType,
-    challenge: string,
-  ): Promise<void>;
-  getChallenge(userId: string, type: ChallengeType): Promise<string | null>;
-  clearChallenge(userId: string, type: ChallengeType): Promise<void>;
+export interface PasskeyStoredChallenge {
+  challenge: string;
+  origin: string;
 }
 
 export interface RegistrationOptionsRequestBody {
@@ -69,13 +65,11 @@ export interface RegistrationVerifyRequestBody {
 
 export interface AuthenticationOptionsRequestBody {
   username: string;
-  redirectTo?: string;
 }
 
 export interface AuthenticationVerifyRequestBody {
   username: string;
   credential: AuthenticationResponseJSON;
-  redirectTo?: string;
 }
 
 export type RegistrationOptionsOverrides = Partial<
@@ -125,12 +119,8 @@ export interface PasskeyWebAuthnOverrides {
 export interface PasskeyMiddlewareOptions {
   rpID: string;
   rpName: string;
-  origin: string | string[];
   storage: PasskeyStorage;
-  challengeStore?: PasskeyChallengeStore;
-  /** @deprecated Use `path` instead. */
   mountPath?: string;
-  path?: string;
   registrationOptions?: RegistrationOptionsOverrides;
   authenticationOptions?: AuthenticationOptionsOverrides;
   verifyRegistrationOptions?: VerifyRegistrationOverrides;
@@ -141,5 +131,4 @@ export interface PasskeyMiddlewareOptions {
 export interface PasskeySessionState {
   isAuthenticated: boolean;
   user: PasskeyUser | null;
-  redirectTo: string | null;
 }

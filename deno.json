@@ -3,5 +3,6 @@
   "workspace": [
     "server",
     "hono-middleware"
-  ]
+  ],
+  "unstable": ["bundle", "kv"]
 }

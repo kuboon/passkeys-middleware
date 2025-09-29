@@ -63,4 +63,19 @@ export class InMemoryPasskeyStore implements PasskeyStorage {
     this.credentials.delete(credentialId);
     return Promise.resolve();
   }
+
+  deleteUser(userId: string): Promise<void> {
+    const existing = this.users.get(userId);
+    if (!existing) {
+      return Promise.resolve();
+    }
+    this.users.delete(userId);
+    this.usersByUsername.delete(existing.username.toLowerCase());
+    for (const [id, credential] of this.credentials.entries()) {
+      if (credential.userId === userId) {
+        this.credentials.delete(id);
+      }
+    }
+    return Promise.resolve();
+  }
 }

@@ -39,7 +39,6 @@ app.use(
   createPasskeyMiddleware({
     rpID: "example.com",
     rpName: "Example Passkeys Demo",
-    origin: "https://example.com",
     storage,
     // Optional: customise the mount path (defaults to '/webauthn')
     path: "/webauthn",
@@ -64,16 +63,22 @@ The middleware exposes the following endpoints relative to the configured `path`
 
 All JSON endpoints return `4xx` errors when required parameters are missing or a
 credential/user cannot be resolved. After a successful authentication the
-middleware stores the session in `c.get('passkey')` and includes an optional
-`redirectTo` value in the `/authenticate/verify` response so clients can send
-users back to the protected URL they originally visited.
+middleware stores the session in `c.get('passkey')` so downstream handlers can
+inspect the authenticated user.
+
+The middleware derives the relying-party origin for each request from the
+incoming `Origin` header (falling back to the request URL) and packages it with
+the generated challenge inside an HMAC-signed cookie. The cookie is verified
+and cleared during the `/verify` steps to ensure the challenge cannot be
+tampered with while still avoiding server-side storage.
 
 ### Storage
 
-`@passkeys-middleware/hono` ships with `InMemoryPasskeyStore` and
-`InMemoryChallengeStore` for quick experiments. For production use you should
-implement the `PasskeyStorage` and `PasskeyChallengeStore` interfaces with your
-own persistence layer and session handling.
+`@passkeys-middleware/hono` ships with `InMemoryPasskeyStore` for quick
+experiments. For production use you should implement the `PasskeyStorage`
+interface with your own persistence layer and session handling. Challenge data
+is automatically signed and stored client-side in cookies using a secret kept in
+`Deno.Kv`.
 
 ### Client bundle caching
 
