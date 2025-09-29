@@ -10,10 +10,18 @@ import {
   type PasskeyUser,
 } from "@passkeys-middleware/hono";
 import { DenoKvPasskeyStore } from "./deno-kv-passkey-store.ts";
-import process from "node:process";
+import { createOidcRouter } from "./oidc-router.ts";
+import { loadEnv } from "./load-env.ts";
 
-const rpID = process.env.RP_ID ?? "localhost";
-const rpName = process.env.RP_NAME ?? "Passkeys Middleware Demo";
+const {
+  rpID,
+  rpName,
+  oidcIssuer,
+  oidcClientId,
+  oidcClientName,
+  oidcClientRedirectUri,
+  oidcCookieKeys,
+} = loadEnv();
 
 const app = new Hono();
 const credentialStore = await DenoKvPasskeyStore.create();
@@ -74,6 +82,20 @@ app.use(
     storage: credentialStore,
   }),
 );
+
+const oidcRouter = createOidcRouter({
+  issuer: oidcIssuer,
+  client: {
+    id: oidcClientId,
+    name: oidcClientName,
+    redirectUris: [oidcClientRedirectUri],
+  },
+  credentialStore,
+  passkeySessionCookieName: SESSION_COOKIE_NAME,
+  cookieKeys: oidcCookieKeys,
+});
+
+app.route("/oidc", oidcRouter);
 
 app.get("/session", (c) => {
   setNoStore(c);
@@ -171,6 +193,15 @@ app.delete("/account", async (c) => {
 
 app.get("/", async (c) => {
   const html = await fetch(import.meta.resolve("./static/index.html")).then(
+    (x) => x.text(),
+  );
+  return c.html(html);
+});
+
+app.get("/demo", (c) => c.redirect("/demo.html"));
+
+app.get("/demo.html", async (c) => {
+  const html = await fetch(import.meta.resolve("./static/demo.html")).then(
     (x) => x.text(),
   );
   return c.html(html);

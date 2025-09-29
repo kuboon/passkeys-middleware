@@ -235,7 +235,9 @@ export const createPasskeyMiddleware = (
     c.header("Cache-Control", "no-store");
   };
 
-  const clientJsPromise = Deno.readTextFile(new URL(import.meta.resolve("../_dist/client.js")))
+  const clientJsPromise = Deno.readTextFile(
+    new URL(import.meta.resolve("../_dist/client.js")),
+  );
   routes.get("/client.js", (c) =>
     respond(async () => {
       setNoStore(c);

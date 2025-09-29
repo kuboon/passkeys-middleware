@@ -1,7 +1,9 @@
 {
   "imports": {
+    "@whatwg-node/server": "npm:@whatwg-node/server@^0.10.12",
     "hono": "npm:hono",
-    "@passkeys-middleware/hono": "../hono-middleware/mod.ts"
+    "@passkeys-middleware/hono": "../hono-middleware/mod.ts",
+    "oidc-provider": "npm:oidc-provider@^9.5.1"
   },
   "tasks": {
     "serve": "deno serve --allow-env --allow-net --allow-read=.. deno-server.ts",
