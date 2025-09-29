@@ -11,9 +11,25 @@ import {
 } from "@passkeys-middleware/hono";
 import { DenoKvPasskeyStore } from "./deno-kv-passkey-store.ts";
 import process from "node:process";
+import { createOidcRouter } from "./oidc-router.ts";
 
 const rpID = process.env.RP_ID ?? "localhost";
 const rpName = process.env.RP_NAME ?? "Passkeys Middleware Demo";
+const defaultOrigin = process.env.PUBLIC_ORIGIN?.trim() ??
+  "http://localhost:8000";
+const normalizedOrigin = defaultOrigin.endsWith("/")
+  ? defaultOrigin.slice(0, -1)
+  : defaultOrigin;
+const oidcIssuer = process.env.OIDC_ISSUER?.trim() ??
+  `${normalizedOrigin}/oidc`;
+const oidcClientId = process.env.OIDC_CLIENT_ID?.trim() ?? "demo-client";
+const oidcClientName = process.env.OIDC_CLIENT_NAME?.trim() ??
+  "Passkeys Demo Client";
+const oidcRedirectUri = process.env.OIDC_CLIENT_REDIRECT_URI?.trim() ??
+  `${normalizedOrigin}/demo.html`;
+const oidcCookieKeys = process.env.OIDC_COOKIE_KEYS?.split(",")
+  .map((key) => key.trim())
+  .filter((key) => key.length > 0);
 
 const app = new Hono();
 const credentialStore = await DenoKvPasskeyStore.create();
@@ -74,6 +90,20 @@ app.use(
     storage: credentialStore,
   }),
 );
+
+const oidcRouter = createOidcRouter({
+  issuer: oidcIssuer,
+  client: {
+    id: oidcClientId,
+    name: oidcClientName,
+    redirectUris: [oidcRedirectUri],
+  },
+  credentialStore,
+  passkeySessionCookieName: SESSION_COOKIE_NAME,
+  cookieKeys: oidcCookieKeys,
+});
+
+app.route("/oidc", oidcRouter);
 
 app.get("/session", (c) => {
   setNoStore(c);
@@ -171,6 +201,15 @@ app.delete("/account", async (c) => {
 
 app.get("/", async (c) => {
   const html = await fetch(import.meta.resolve("./static/index.html")).then(
+    (x) => x.text(),
+  );
+  return c.html(html);
+});
+
+app.get("/demo", (c) => c.redirect("/demo.html"));
+
+app.get("/demo.html", async (c) => {
+  const html = await fetch(import.meta.resolve("./static/demo.html")).then(
     (x) => x.text(),
   );
   return c.html(html);

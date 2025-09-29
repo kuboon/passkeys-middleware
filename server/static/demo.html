@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OIDC デモ | Passkeys Middleware</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family:
+          "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+        line-height: 1.6;
+        --surface: rgba(255, 255, 255, 0.92);
+        --surface-strong: rgba(255, 255, 255, 0.98);
+        --surface-muted: rgba(15, 23, 42, 0.08);
+        --text: #0f172a;
+        --text-muted: rgba(15, 23, 42, 0.65);
+        --primary: #2563eb;
+        --primary-strong: #1d4ed8;
+        --border: rgba(15, 23, 42, 0.12);
+        --danger: #dc2626;
+        --radius: 18px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --surface: rgba(15, 23, 42, 0.86);
+          --surface-strong: rgba(15, 23, 42, 0.95);
+          --surface-muted: rgba(148, 163, 184, 0.12);
+          --text: rgba(226, 232, 240, 0.94);
+          --text-muted: rgba(148, 163, 184, 0.82);
+          --border: rgba(148, 163, 184, 0.22);
+        }
+        body {
+          background:
+            radial-gradient(
+              circle at top left,
+              rgba(59, 130, 246, 0.26),
+              transparent 55%
+            ),
+            radial-gradient(
+            circle at bottom right,
+            rgba(16, 185, 129, 0.24),
+            transparent 55%
+          ),
+            linear-gradient(180deg, #020617, #0f172a);
+        }
+      }
+      body {
+        margin: 0;
+        padding: 3rem 1.5rem 4rem;
+        background:
+          radial-gradient(
+            circle at top left,
+            rgba(59, 130, 246, 0.18),
+            transparent 55%
+          ),
+          radial-gradient(
+          circle at bottom right,
+          rgba(16, 185, 129, 0.16),
+          transparent 55%
+        ),
+          linear-gradient(180deg, #f1f5f9, #e2e8f0);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        display: grid;
+        gap: 2.2rem;
+      }
+      .card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: clamp(1.6rem, 1.2rem + 1vw, 2.2rem);
+        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
+        border: 1px solid var(--border);
+        display: grid;
+        gap: 1.35rem;
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: clamp(2rem, 1.6rem + 1vw, 2.6rem);
+      }
+      h2 {
+        margin: 0;
+        font-size: clamp(1.4rem, 1.25rem + 0.4vw, 1.75rem);
+      }
+      p {
+        margin: 0;
+        color: var(--text-muted);
+      }
+      .hint {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        min-height: 1.2rem;
+      }
+      form {
+        display: grid;
+        gap: 0.9rem;
+      }
+      label {
+        display: grid;
+        gap: 0.45rem;
+        font-weight: 600;
+        color: var(--text);
+      }
+      input[type="text"],
+      input[type="password"],
+      input[type="search"],
+      input[type="url"],
+      input[type="email"] {
+        appearance: none;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        background: var(--surface-strong);
+        color: inherit;
+      }
+      input:focus {
+        outline: 3px solid rgba(37, 99, 235, 0.2);
+        border-color: rgba(37, 99, 235, 0.65);
+      }
+      button {
+        appearance: none;
+        border: none;
+        border-radius: 999px;
+        padding: 0.7rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--primary);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        transition: background 0.15s ease, transform 0.15s ease;
+      }
+      button:hover {
+        background: var(--primary-strong);
+        transform: translateY(-1px);
+      }
+      button.secondary {
+        background: var(--surface-muted);
+        color: var(--text);
+      }
+      button.secondary:hover {
+        background: rgba(37, 99, 235, 0.18);
+        color: var(--primary-strong);
+      }
+      button.danger {
+        background: var(--danger);
+      }
+      button:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      .status {
+        border-radius: 14px;
+        padding: 0.75rem 1rem;
+        background: var(--surface-muted);
+        border: 1px solid transparent;
+        font-weight: 500;
+      }
+      .status[data-status="error"] {
+        background: rgba(248, 113, 113, 0.16);
+        border-color: rgba(248, 113, 113, 0.25);
+        color: var(--danger);
+      }
+      .status[data-status="success"] {
+        background: rgba(34, 197, 94, 0.16);
+        border-color: rgba(34, 197, 94, 0.24);
+        color: #047857;
+      }
+      pre {
+        margin: 0;
+        padding: 1rem;
+        border-radius: 14px;
+        background: rgba(15, 23, 42, 0.85);
+        color: #e2e8f0;
+        overflow-x: auto;
+        font-size: 0.95rem;
+      }
+      code {
+        font-family:
+          "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo,
+          Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+      .grid-two {
+        display: grid;
+        gap: 1.5rem;
+      }
+      @media (min-width: 720px) {
+        .grid-two {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <div>
+          <h1>Passkeys × OIDC デモ</h1>
+          <p>
+            パスキーで認証したユーザーを <abbr title="OpenID Connect"
+            >OIDC</abbr>
+            プロバイダーとして公開し、サンプルクライアントからログインできるデモです。
+          </p>
+        </div>
+        <div class="status" id="session-status" data-status="info">
+          セッションを確認しています…
+        </div>
+        <div class="actions">
+          <button class="secondary" id="refresh-session">
+            セッション再読込
+          </button>
+          <button class="danger" id="logout-button">サインアウト</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>パスキーでアカウントを用意</h2>
+        <div class="grid-two">
+          <form id="register-form">
+            <h3>新規登録</h3>
+            <label>
+              ユーザー名
+              <input
+                type="text"
+                id="register-username"
+                autocomplete="username"
+                required
+              />
+            </label>
+            <label>
+              表示名
+              <input
+                type="text"
+                id="register-display-name"
+                autocomplete="name"
+              />
+            </label>
+            <label>
+              パスキーのニックネーム
+              <input
+                type="text"
+                id="register-nickname"
+                autocomplete="off"
+                required
+              />
+            </label>
+            <button type="submit" id="register-submit">パスキーを登録</button>
+            <p class="hint" id="register-hint"></p>
+          </form>
+
+          <form id="login-form">
+            <h3>パスキーでサインイン</h3>
+            <label>
+              ユーザー名
+              <input
+                type="text"
+                id="login-username"
+                autocomplete="username"
+                required
+              />
+            </label>
+            <button type="submit" id="login-submit">パスキーで認証</button>
+            <p class="hint" id="login-hint"></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>OIDC フロー</h2>
+        <p>
+          サインイン済みのユーザーとして OIDC
+          認可エンドポイントにリダイレクトします。 応答では <code
+          >id_token</code> を受け取り、このページでデコードして表示します。
+        </p>
+        <div class="actions">
+          <button id="start-oidc">OIDC ログインを開始</button>
+          <button class="secondary" id="clear-id-token">
+            トークン表示をクリア
+          </button>
+        </div>
+        <div id="oidc-status" class="status" data-status="info">
+          準備完了
+        </div>
+        <div id="id-token-view" hidden>
+          <h3>ID トークン</h3>
+          <pre id="id-token-raw"></pre>
+          <h3>デコード結果</h3>
+          <pre id="id-token-decoded"></pre>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      import { createClient } from "/webauthn/client.js";
+
+      const passkeyClient = createClient({ mountPath: "/webauthn" });
+
+      const sessionStatus = document.getElementById("session-status");
+      const refreshSessionButton = document.getElementById(
+        "refresh-session",
+      );
+      const logoutButton = document.getElementById("logout-button");
+      const registerForm = document.getElementById("register-form");
+      const registerUsername = document.getElementById(
+        "register-username",
+      );
+      const registerDisplayName = document.getElementById(
+        "register-display-name",
+      );
+      const registerNickname = document.getElementById(
+        "register-nickname",
+      );
+      const registerHint = document.getElementById("register-hint");
+      const registerSubmit = document.getElementById("register-submit");
+      const loginForm = document.getElementById("login-form");
+      const loginUsername = document.getElementById("login-username");
+      const loginHint = document.getElementById("login-hint");
+      const loginSubmit = document.getElementById("login-submit");
+      const startOidcButton = document.getElementById("start-oidc");
+      const clearIdTokenButton = document.getElementById(
+        "clear-id-token",
+      );
+      const oidcStatus = document.getElementById("oidc-status");
+      const idTokenView = document.getElementById("id-token-view");
+      const idTokenRaw = document.getElementById("id-token-raw");
+      const idTokenDecoded = document.getElementById(
+        "id-token-decoded",
+      );
+
+      const storageKeys = {
+        username: "demo.passkeys.username",
+        oidcState: "demo.oidc.state",
+        idToken: "demo.oidc.idToken",
+      };
+
+      const setSessionStatus = (message, status = "info") => {
+        sessionStatus.textContent = message;
+        sessionStatus.dataset.status = status;
+      };
+
+      const setOidcStatus = (message, status = "info") => {
+        oidcStatus.textContent = message;
+        oidcStatus.dataset.status = status;
+      };
+
+      const persistUsername = (username) => {
+        if (username) {
+          localStorage.setItem(storageKeys.username, username);
+        }
+      };
+
+      const restoreUsername = () => {
+        const value = localStorage.getItem(storageKeys.username) ?? "";
+        registerUsername.value = value;
+        loginUsername.value = value;
+        if (value) {
+          registerNickname.value = `${value} の端末`;
+        }
+      };
+
+      const decodeJwt = (token) => {
+        try {
+          const [headerB64, payloadB64] = token.split(".");
+          const decode = (segment) =>
+            JSON.parse(
+              atob(segment.replace(/-/g, "+").replace(/_/g, "/")),
+            );
+          return {
+            header: decode(headerB64),
+            payload: decode(payloadB64),
+          };
+        } catch (error) {
+          console.error("Failed to decode token", error);
+          return null;
+        }
+      };
+
+      const renderIdToken = (token) => {
+        if (!token) {
+          idTokenView.hidden = true;
+          idTokenRaw.textContent = "";
+          idTokenDecoded.textContent = "";
+          return;
+        }
+        idTokenView.hidden = false;
+        idTokenRaw.textContent = token;
+        const decoded = decodeJwt(token);
+        idTokenDecoded.textContent = decoded
+          ? JSON.stringify(decoded, null, 2)
+          : "デコードに失敗しました";
+      };
+
+      const refreshSession = async () => {
+        try {
+          const response = await fetch("/session", {
+            headers: { Accept: "application/json" },
+          });
+          if (!response.ok) {
+            throw new Error(`ステータス ${response.status}`);
+          }
+          const session = await response.json();
+          if (session?.isAuthenticated && session.user) {
+            const message = `サインイン中: ${
+              session.user.displayName ?? session.user.username
+            }`;
+            setSessionStatus(message, "success");
+          } else {
+            setSessionStatus("まだサインインしていません", "info");
+          }
+        } catch (error) {
+          console.error(error);
+          setSessionStatus(
+            "セッション情報を取得できませんでした",
+            "error",
+          );
+        }
+      };
+
+      const handleRegister = async (event) => {
+        event.preventDefault();
+        registerHint.textContent = "";
+        registerHint.style.color = "var(--text-muted)";
+        const username = registerUsername.value.trim();
+        if (!username) {
+          registerHint.textContent = "ユーザー名を入力してください";
+          return;
+        }
+        const nickname = registerNickname.value.trim();
+        if (!nickname) {
+          registerHint.textContent =
+            "パスキーのニックネームを入力してください";
+          return;
+        }
+        try {
+          registerSubmit.disabled = true;
+          await passkeyClient.register({
+            username,
+            displayName: registerDisplayName.value.trim() || username,
+            nickname,
+          });
+          persistUsername(username);
+          registerHint.textContent = "パスキーを登録しました";
+          registerHint.style.color = "#047857";
+          await refreshSession();
+        } catch (error) {
+          console.error(error);
+          registerHint.textContent = error?.message ??
+            "登録に失敗しました";
+          registerHint.style.color = "var(--danger)";
+        } finally {
+          registerSubmit.disabled = false;
+        }
+      };
+
+      const handleLogin = async (event) => {
+        event.preventDefault();
+        loginHint.textContent = "";
+        loginHint.style.color = "var(--text-muted)";
+        const username = loginUsername.value.trim();
+        if (!username) {
+          loginHint.textContent = "ユーザー名を入力してください";
+          return;
+        }
+        try {
+          loginSubmit.disabled = true;
+          await passkeyClient.authenticate({ username });
+          persistUsername(username);
+          loginHint.textContent = "サインインしました";
+          loginHint.style.color = "#047857";
+          await refreshSession();
+        } catch (error) {
+          console.error(error);
+          loginHint.textContent = error?.message ??
+            "サインインに失敗しました";
+          loginHint.style.color = "var(--danger)";
+        } finally {
+          loginSubmit.disabled = false;
+        }
+      };
+
+      const handleLogout = async () => {
+        try {
+          await fetch("/session/logout", { method: "POST" });
+          setSessionStatus("サインアウトしました", "info");
+          await refreshSession();
+        } catch (error) {
+          console.error(error);
+          setSessionStatus("サインアウトに失敗しました", "error");
+        }
+      };
+
+      const startOidc = () => {
+        setOidcStatus("認可サーバーへリダイレクトします…");
+        const state = crypto.randomUUID();
+        sessionStorage.setItem(storageKeys.oidcState, state);
+        const redirectUri = new URL(window.location.href);
+        redirectUri.hash = "";
+        const authorizeUrl = new URL(
+          "/oidc/auth",
+          window.location.origin,
+        );
+        authorizeUrl.searchParams.set("client_id", "demo-client");
+        authorizeUrl.searchParams.set("redirect_uri", redirectUri.href);
+        authorizeUrl.searchParams.set("response_type", "id_token");
+        authorizeUrl.searchParams.set("scope", "openid profile");
+        authorizeUrl.searchParams.set("state", state);
+        authorizeUrl.searchParams.set("nonce", crypto.randomUUID());
+        window.location.assign(authorizeUrl);
+      };
+
+      const processOidcCallback = () => {
+        if (!window.location.hash) {
+          const storedToken = sessionStorage.getItem(
+            storageKeys.idToken,
+          );
+          if (storedToken) {
+            renderIdToken(storedToken);
+          }
+          return;
+        }
+        const params = new URLSearchParams(
+          window.location.hash.slice(1),
+        );
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname,
+        );
+        if (params.get("error")) {
+          setOidcStatus(
+            `エラー: ${
+              params.get("error_description") ?? params.get("error")
+            }`,
+            "error",
+          );
+          return;
+        }
+        const state = params.get("state");
+        const expectedState = sessionStorage.getItem(
+          storageKeys.oidcState,
+        );
+        if (expectedState && state !== expectedState) {
+          setOidcStatus("state が一致しません", "error");
+          return;
+        }
+        const token = params.get("id_token");
+        if (!token) {
+          setOidcStatus("id_token が返されませんでした", "error");
+          return;
+        }
+        sessionStorage.removeItem(storageKeys.oidcState);
+        sessionStorage.setItem(storageKeys.idToken, token);
+        setOidcStatus("ID トークンを受信しました", "success");
+        renderIdToken(token);
+      };
+
+      clearIdTokenButton.addEventListener("click", () => {
+        sessionStorage.removeItem(storageKeys.idToken);
+        renderIdToken("");
+        setOidcStatus("トークン表示をクリアしました", "info");
+      });
+
+      refreshSessionButton.addEventListener("click", refreshSession);
+      logoutButton.addEventListener("click", handleLogout);
+      registerForm.addEventListener("submit", handleRegister);
+      loginForm.addEventListener("submit", handleLogin);
+      startOidcButton.addEventListener("click", startOidc);
+
+      restoreUsername();
+      processOidcCallback();
+      refreshSession();
+    </script>
+  </body>
+</html>
