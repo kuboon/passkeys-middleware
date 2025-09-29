@@ -10,26 +10,18 @@ import {
   type PasskeyUser,
 } from "@passkeys-middleware/hono";
 import { DenoKvPasskeyStore } from "./deno-kv-passkey-store.ts";
-import process from "node:process";
 import { createOidcRouter } from "./oidc-router.ts";
+import { loadEnv } from "./load-env.ts";
 
-const rpID = process.env.RP_ID ?? "localhost";
-const rpName = process.env.RP_NAME ?? "Passkeys Middleware Demo";
-const defaultOrigin = process.env.PUBLIC_ORIGIN?.trim() ??
-  "http://localhost:8000";
-const normalizedOrigin = defaultOrigin.endsWith("/")
-  ? defaultOrigin.slice(0, -1)
-  : defaultOrigin;
-const oidcIssuer = process.env.OIDC_ISSUER?.trim() ??
-  `${normalizedOrigin}/oidc`;
-const oidcClientId = process.env.OIDC_CLIENT_ID?.trim() ?? "demo-client";
-const oidcClientName = process.env.OIDC_CLIENT_NAME?.trim() ??
-  "Passkeys Demo Client";
-const oidcRedirectUri = process.env.OIDC_CLIENT_REDIRECT_URI?.trim() ??
-  `${normalizedOrigin}/demo.html`;
-const oidcCookieKeys = process.env.OIDC_COOKIE_KEYS?.split(",")
-  .map((key) => key.trim())
-  .filter((key) => key.length > 0);
+const {
+  rpID,
+  rpName,
+  oidcIssuer,
+  oidcClientId,
+  oidcClientName,
+  oidcClientRedirectUri,
+  oidcCookieKeys,
+} = loadEnv();
 
 const app = new Hono();
 const credentialStore = await DenoKvPasskeyStore.create();
@@ -96,7 +88,7 @@ const oidcRouter = createOidcRouter({
   client: {
     id: oidcClientId,
     name: oidcClientName,
-    redirectUris: [oidcRedirectUri],
+    redirectUris: [oidcClientRedirectUri],
   },
   credentialStore,
   passkeySessionCookieName: SESSION_COOKIE_NAME,
