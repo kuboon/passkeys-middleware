@@ -2,7 +2,8 @@
   "nodeModulesDir": "auto",
   "workspace": [
     "server",
-    "hono-middleware"
+    "hono-middleware",
+    "dpop"
   ],
   "unstable": ["bundle", "kv"]
 }
