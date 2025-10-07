@@ -176,6 +176,14 @@ app.get("/", async (c) => {
   return c.html(html);
 });
 
+app.get("/styles.css", async (c) => {
+  const css = await fetch(import.meta.resolve("./static/styles.css")).then(
+    (x) => x.text(),
+  );
+  c.header("Content-Type", "text/css; charset=utf-8");
+  return c.body(css);
+});
+
 app.onError((err, c) => {
   console.error(err);
   if (err instanceof HTTPException) {
