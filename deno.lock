@@ -3,6 +3,7 @@
   "specifiers": {
     "jsr:@std/assert@*": "1.0.14",
     "jsr:@std/assert@1": "1.0.14",
+    "jsr:@std/encoding@1.0.10": "1.0.10",
     "jsr:@std/internal@^1.0.10": "1.0.10",
     "npm:@hexagon/base64@^2.0.4": "2.0.4",
     "npm:@simplewebauthn/browser@^13.2.0": "13.2.0",
@@ -17,6 +18,9 @@
       "dependencies": [
         "jsr:@std/internal"
       ]
+    },
+    "@std/encoding@1.0.10": {
+      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     },
     "@std/internal@1.0.10": {
       "integrity": "e3be62ce42cab0e177c27698e5d9800122f67b766a0bea6ca4867886cbde8cf7"
@@ -215,6 +219,12 @@
   },
   "workspace": {
     "members": {
+      "dpop": {
+        "dependencies": [
+          "jsr:@std/assert@1",
+          "jsr:@std/encoding@1.0.10"
+        ]
+      },
       "hono-middleware": {
         "dependencies": [
           "jsr:@std/assert@1",
