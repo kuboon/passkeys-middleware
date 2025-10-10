@@ -10,10 +10,7 @@ import {
   type PasskeyUser,
 } from "@passkeys-middleware/hono";
 import { DenoKvPasskeyStore } from "./deno-kv-passkey-store.ts";
-import process from "node:process";
-
-const rpID = process.env.RP_ID ?? "localhost";
-const rpName = process.env.RP_NAME ?? "Passkeys Middleware Demo";
+import { rpID, rpName } from "./config.ts";
 
 const app = new Hono();
 const credentialStore = await DenoKvPasskeyStore.create();
