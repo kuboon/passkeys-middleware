@@ -2,6 +2,7 @@ import type { PasskeyUser } from "@passkeys-middleware/hono";
 
 const SESSION_PREFIX = ["passkeys_middleware", "remote", "session"] as const;
 const JOIN_PREFIX = ["passkeys_middleware", "remote", "join"] as const;
+const DEFAULT_PUBSUB_BASE_URL = "https://pubsub.kbn.one/";
 
 export type RemoteAuthStatus =
   | "pending"
@@ -18,6 +19,22 @@ export interface RemoteAuthSession {
   status: RemoteAuthStatus;
   user: PasskeyUser | null;
   claimToken: string | null;
+}
+
+export interface RemoteAuthSessionView {
+  id: string;
+  status: RemoteAuthStatus;
+  expiresAt: number;
+  user: {
+    id: string;
+    username: string;
+    displayName: string;
+  } | null;
+  claimToken: string | null;
+}
+
+export interface RemoteAuthServiceOptions {
+  pubsubBaseUrl?: string | URL | null;
 }
 
 type SessionSubscriber = (session: RemoteAuthSession) => void;
@@ -37,6 +54,36 @@ const toBase64Url = (bytes: Uint8Array): string => {
 
 const createToken = (size = 32) => toBase64Url(randomBytes(size));
 
+const normalizeBaseUrl = (value: string | URL): string => {
+  const source = value instanceof URL ? value.toString() : String(value);
+  const trimmed = source.trim();
+  if (!trimmed) {
+    throw new Error("PubSub base URL cannot be empty");
+  }
+  const url = new URL(trimmed);
+  url.search = "";
+  url.hash = "";
+  const path = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
+  url.pathname = path;
+  return url.toString();
+};
+
+export const toRemoteAuthSessionView = (
+  session: RemoteAuthSession,
+): RemoteAuthSessionView => ({
+  id: session.id,
+  status: session.status,
+  expiresAt: session.expiresAt,
+  user: session.user
+    ? {
+      id: session.user.id,
+      username: session.user.username,
+      displayName: session.user.displayName,
+    }
+    : null,
+  claimToken: session.status === "authorized" ? session.claimToken : null,
+});
+
 const sessionKey = (id: string): Deno.KvKey =>
   [...SESSION_PREFIX, id] as Deno.KvKey;
 
@@ -50,11 +97,22 @@ export class RemoteAuthService {
   private readonly subscribers = new Map<string, Set<SessionSubscriber>>();
   private readonly expiryTimers = new Map<string, number>();
 
-  private constructor(private readonly kv: Deno.Kv) {}
+  private readonly pubsubBaseUrl: string | null;
 
-  static async create(): Promise<RemoteAuthService> {
+  private constructor(
+    private readonly kv: Deno.Kv,
+    options: RemoteAuthServiceOptions = {},
+  ) {
+    const base = options.pubsubBaseUrl ?? DEFAULT_PUBSUB_BASE_URL;
+    const normalized = typeof base === "string" ? base.trim() : base;
+    this.pubsubBaseUrl = normalized ? normalizeBaseUrl(normalized) : null;
+  }
+
+  static async create(
+    options: RemoteAuthServiceOptions = {},
+  ): Promise<RemoteAuthService> {
     const kv = await Deno.openKv();
-    return new RemoteAuthService(kv);
+    return new RemoteAuthService(kv, options);
   }
 
   async createSession(ttlMs = 5 * 60 * 1000): Promise<RemoteAuthSession> {
@@ -83,6 +141,7 @@ export class RemoteAuthService {
     }
 
     this.scheduleExpiry(session);
+    this.publishSessionUpdate(session);
 
     return session;
   }
@@ -214,6 +273,7 @@ export class RemoteAuthService {
       .delete(joinKey(session.joinToken))
       .commit();
     this.notify(updated);
+    this.publishSessionUpdate(updated);
   }
 
   async authorizeSession(
@@ -262,6 +322,7 @@ export class RemoteAuthService {
     }
     this.scheduleExpiry(updated);
     this.notify(updated);
+    this.publishSessionUpdate(updated);
     return updated;
   }
 
@@ -305,6 +366,40 @@ export class RemoteAuthService {
       throw new Error("Failed to finalise remote session");
     }
     this.notify(updated);
+    this.publishSessionUpdate(updated);
     return updated;
+  }
+
+  private publishSessionUpdate(session: RemoteAuthSession) {
+    if (!this.pubsubBaseUrl) {
+      return;
+    }
+    const payload = toRemoteAuthSessionView(session);
+    queueMicrotask(async () => {
+      try {
+        const url = new URL(this.pubsubBaseUrl);
+        url.pathname = `${url.pathname}${
+          encodeURIComponent(session.pollToken)
+        }`;
+        const response = await fetch(url.toString(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        });
+        if (!response.ok) {
+          const details = await response.text().catch(() => "");
+          console.error(
+            "Failed to publish remote auth update",
+            response.status,
+            details,
+          );
+        }
+      } catch (error) {
+        console.error("Failed to publish remote auth update", error);
+      }
+    });
   }
 }

@@ -192,6 +192,45 @@
 
       const client = createClient();
 
+      const defaultPubsubBaseUrl = "https://pubsub.kbn.one/";
+      const pubsubBaseUrl = (() => {
+        try {
+          const value = __PUBSUB_BASE_JSON__;
+          if (typeof value === "string" && value.trim()) {
+            return value.trim();
+          }
+        } catch {
+          // ignore and fall back to default
+        }
+        return defaultPubsubBaseUrl;
+      })();
+
+      const buildPubsubUrl = (channel) => {
+        const identifier = typeof channel === "string"
+          ? channel.trim()
+          : "";
+        if (!identifier) {
+          return null;
+        }
+        const base =
+          typeof pubsubBaseUrl === "string" && pubsubBaseUrl.trim()
+            ? pubsubBaseUrl.trim()
+            : defaultPubsubBaseUrl;
+        try {
+          const url = new URL(base);
+          const path = url.pathname.endsWith("/")
+            ? url.pathname
+            : `${url.pathname}/`;
+          url.pathname = `${path}${encodeURIComponent(identifier)}`;
+          url.search = "";
+          url.hash = "";
+          return url.toString();
+        } catch {
+          const normalized = base.endsWith("/") ? base : `${base}/`;
+          return `${normalized}${encodeURIComponent(identifier)}`;
+        }
+      };
+
       const storageKey = "passkeys.currentUsername";
 
       const toastEl = document.getElementById("toast");
@@ -329,6 +368,7 @@
         })(),
         sessionId: null,
         pollToken: null,
+        channel: null,
         claimToken: null,
         eventSource: null,
         authorized: false,
@@ -600,6 +640,8 @@
 
       const closeRemoteEventSource = () => {
         if (remoteState.eventSource) {
+          remoteState.eventSource.onmessage = null;
+          remoteState.eventSource.onerror = null;
           remoteState.eventSource.close();
           remoteState.eventSource = null;
         }
@@ -852,6 +894,7 @@
         }
         remoteState.sessionId = null;
         remoteState.pollToken = null;
+        remoteState.channel = null;
         remoteState.claimToken = null;
         remoteStatusText.dataset.state = "pending";
         remoteStatusText.textContent = "QRコードを生成しています…";
@@ -877,25 +920,30 @@
           ) {
             throw new Error("サーバーから予期しない応答がありました。");
           }
+          const channel = typeof data.channel === "string"
+            ? data.channel.trim()
+            : "";
+          const resolvedChannel = channel || data.pollToken;
+          if (!resolvedChannel) {
+            throw new Error("更新通知チャネルを構成できませんでした。");
+          }
           remoteState.sessionId = data.sessionId;
           remoteState.pollToken = data.pollToken;
+          remoteState.channel = resolvedChannel;
           await renderRemoteQr(data.loginUrl);
           remoteStatusText.dataset.state = "waiting";
           remoteStatusText.textContent =
             "スマートフォンでQRコードを読み取り、サインインしてください。";
-          const eventsUrl = `/remote-auth/events?session=${
-            encodeURIComponent(
-              data.sessionId,
-            )
-          }&token=${encodeURIComponent(data.pollToken)}`;
-          const source = new EventSource(eventsUrl, {
-            withCredentials: true,
-          });
-          source.addEventListener("update", handleRemoteUpdate);
+          const subscribeUrl = buildPubsubUrl(resolvedChannel);
+          if (!subscribeUrl) {
+            throw new Error("更新通知チャネルを構成できませんでした。");
+          }
+          const source = new EventSource(subscribeUrl);
+          source.onmessage = handleRemoteUpdate;
           source.onerror = () => {
             remoteStatusText.dataset.state = "error";
             remoteStatusText.textContent =
-              "接続が中断されました。QRコードを再生成してください。";
+              "状態通知サービスとの接続が中断されました。QRコードを再生成してください。";
             closeRemoteEventSource();
             if (remoteRefreshButton) {
               remoteRefreshButton.disabled = false;

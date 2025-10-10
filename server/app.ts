@@ -13,6 +13,7 @@ import { DenoKvPasskeyStore } from "./deno-kv-passkey-store.ts";
 import {
   RemoteAuthService,
   type RemoteAuthSession,
+  toRemoteAuthSessionView,
 } from "./remote-auth-service.ts";
 import process from "node:process";
 
@@ -21,7 +22,11 @@ const rpName = process.env.RP_NAME ?? "Passkeys Middleware Demo";
 
 const app = new Hono();
 const credentialStore = await DenoKvPasskeyStore.create();
-const remoteAuth = await RemoteAuthService.create();
+const pubsubBaseUrl = process.env.PUBSUB_BASE_URL?.trim() ||
+  "https://pubsub.kbn.one/";
+const remoteAuth = await RemoteAuthService.create({
+  pubsubBaseUrl,
+});
 
 const SESSION_COOKIE_NAME = "passkey_session";
 const baseCookieOptions = {
@@ -55,19 +60,7 @@ const clearSession = (c: Context) => {
   setSessionState(c, { isAuthenticated: false, user: null });
 };
 
-const sanitizeRemoteSession = (session: RemoteAuthSession) => ({
-  id: session.id,
-  status: session.status,
-  expiresAt: session.expiresAt,
-  user: session.user
-    ? {
-      id: session.user.id,
-      username: session.user.username,
-      displayName: session.user.displayName,
-    }
-    : null,
-  claimToken: session.status === "authorized" ? session.claimToken : null,
-});
+const sanitizeRemoteSession = toRemoteAuthSessionView;
 
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (char) => {
@@ -217,6 +210,7 @@ app.post("/remote-auth/session", async (c) => {
   return c.json({
     sessionId: session.id,
     pollToken: session.pollToken,
+    channel: session.pollToken,
     loginUrl: loginUrl.toString(),
     expiresAt: session.expiresAt,
   });
@@ -362,7 +356,9 @@ app.get("/", async (c) => {
   const html = await fetch(import.meta.resolve("./static/index.html")).then(
     (x) => x.text(),
   );
-  const rendered = html.replaceAll("__RP_ID__", escapeHtml(rpID));
+  const rendered = html
+    .replaceAll("__RP_ID__", escapeHtml(rpID))
+    .replaceAll("__PUBSUB_BASE_JSON__", JSON.stringify(pubsubBaseUrl));
   return c.html(rendered);
 });
 
