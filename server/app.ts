@@ -211,7 +211,9 @@ app.post("/remote-auth/session", async (c) => {
   const session = await remoteAuth.createSession();
   const requestUrl = new URL(c.req.url);
   const loginUrl = new URL("/", requestUrl);
-  loginUrl.searchParams.set("remote", session.joinToken);
+  const hashParams = new URLSearchParams();
+  hashParams.set("remote", session.joinToken);
+  loginUrl.hash = hashParams.toString();
   return c.json({
     sessionId: session.id,
     pollToken: session.pollToken,

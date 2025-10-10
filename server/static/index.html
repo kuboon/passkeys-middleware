@@ -271,9 +271,58 @@
       const remoteState = {
         token: (() => {
           try {
-            const url = new URL(window.location.href);
-            const value = url.searchParams.get("remote");
-            return value ? value.trim() || null : null;
+            const { hash, pathname, search } = window.location;
+            if (!hash) {
+              return null;
+            }
+            const content = hash.startsWith("#") ? hash.slice(1) : hash;
+            if (!content) {
+              return null;
+            }
+            const segments = content.split("&");
+            let token = null;
+            const remaining = [];
+            for (const segment of segments) {
+              if (!segment) {
+                continue;
+              }
+              const equalsIndex = segment.indexOf("=");
+              if (equalsIndex === -1) {
+                remaining.push(segment);
+                continue;
+              }
+              const key = segment.slice(0, equalsIndex);
+              const rawValue = segment.slice(equalsIndex + 1);
+              if (key === "remote" && token === null) {
+                try {
+                  token = decodeURIComponent(rawValue);
+                } catch {
+                  token = rawValue;
+                }
+              } else {
+                remaining.push(segment);
+              }
+            }
+            const replaceHash = (nextHashValue) => {
+              const nextUrl = `${pathname}${search}${nextHashValue}`;
+              if (typeof window.history?.replaceState === "function") {
+                window.history.replaceState(null, "", nextUrl);
+              } else {
+                window.location.hash = nextHashValue;
+              }
+            };
+            const nextHash = remaining.length > 0
+              ? `#${remaining.join("&")}`
+              : "";
+            if (typeof token === "string") {
+              replaceHash(nextHash);
+              const trimmed = token.trim();
+              return trimmed ? trimmed : null;
+            }
+            if (nextHash !== hash) {
+              replaceHash(nextHash);
+            }
+            return null;
           } catch {
             return null;
           }
