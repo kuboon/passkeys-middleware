@@ -11,42 +11,61 @@
     <main class="page">
       <header class="page-header">
         <div class="brand">
-          <h1 id="brand"></h1>
-        </div>
-        <div class="status" id="status" data-status="info" role="status">
-          準備が整いました。
+          <h1 id="brand">__RP_ID__</h1>
         </div>
       </header>
+
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+        準備が整いました。
+      </div>
 
       <section id="guest-view" class="panel">
         <div class="card">
           <h2>パスキーでサインイン</h2>
-          <form id="guest-form" class="stack" autocomplete="off">
-            <label class="field" for="guest-username">
-              <span>ユーザー名</span>
-              <input
-                id="guest-username"
-                type="text"
-                name="username"
-                autocomplete="username webauthn"
-                placeholder="例: your-name"
-                required
-              />
-            </label>
-            <div class="button-row align-start">
-              <button type="submit" class="primary">サインイン</button>
-              <button
-                type="button"
-                id="open-create-account"
-                class="secondary"
-              >
-                アカウントを作成
-              </button>
-            </div>
-          </form>
+          <p id="guest-hint" class="hint">
+            パスキーが登録されていれば自動的にサインインします。
+          </p>
+          <div class="button-row align-start">
+            <button type="button" id="retry-signin" class="primary" hidden>
+              パスキーでサインイン
+            </button>
+            <button
+              type="button"
+              id="open-create-account"
+              class="secondary"
+              hidden
+            >
+              パスキーでサインアップ
+            </button>
+          </div>
           <p id="conditional-status" class="hint" data-state="pending">
             パスキーの自動入力に対応しているか確認しています…
           </p>
+          <p id="remote-notice" class="hint" hidden></p>
+        </div>
+      </section>
+
+      <section id="fallback-view" class="panel" hidden>
+        <div class="card">
+          <h2>別のデバイスでサインイン</h2>
+          <p class="hint">
+            このブラウザーはパスキーに対応していません。スマートフォンなどの対応デバイスでQRコードを読み取り、パスキーで認証してください。
+          </p>
+          <div
+            id="remote-qr"
+            class="qr-placeholder"
+            role="img"
+            aria-live="polite"
+          >
+          </div>
+          <p id="remote-status" class="hint" data-state="pending">
+            QRコードを生成しています…
+          </p>
+          <div class="button-row align-start">
+            <button type="button" id="remote-refresh" class="secondary">
+              QRコードを再生成
+            </button>
+          </div>
         </div>
       </section>
 
@@ -124,6 +143,16 @@
           <p id="passkey-dialog-description" class="hint">
             後から分かるように鍵に名前を付けてください。
           </p>
+          <label class="field" id="passkey-username-field" hidden>
+            <span>ユーザー名</span>
+            <input
+              id="passkey-username"
+              type="text"
+              name="username"
+              autocomplete="username webauthn"
+              required
+            />
+          </label>
           <label class="field" id="passkey-display-name-field">
             <span>表示名</span>
             <input
@@ -156,19 +185,59 @@
     </main>
 
     <script type="module">
-      import { createClient } from "/webauthn/client.js";
+      import {
+        browserSupportsWebAuthn,
+        createClient,
+      } from "/webauthn/client.js";
 
       const client = createClient();
 
+      const defaultPubsubBaseUrl = "https://pubsub.kbn.one/";
+      const pubsubBaseUrl = (() => {
+        try {
+          const value = __PUBSUB_BASE_JSON__;
+          if (typeof value === "string" && value.trim()) {
+            return value.trim();
+          }
+        } catch {
+          // ignore and fall back to default
+        }
+        return defaultPubsubBaseUrl;
+      })();
+
+      const buildPubsubUrl = (channel) => {
+        const identifier = typeof channel === "string"
+          ? channel.trim()
+          : "";
+        if (!identifier) {
+          return null;
+        }
+        const base =
+          typeof pubsubBaseUrl === "string" && pubsubBaseUrl.trim()
+            ? pubsubBaseUrl.trim()
+            : defaultPubsubBaseUrl;
+        try {
+          const url = new URL(base);
+          const path = url.pathname.endsWith("/")
+            ? url.pathname
+            : `${url.pathname}/`;
+          url.pathname = `${path}${encodeURIComponent(identifier)}`;
+          url.search = "";
+          url.hash = "";
+          return url.toString();
+        } catch {
+          const normalized = base.endsWith("/") ? base : `${base}/`;
+          return `${normalized}${encodeURIComponent(identifier)}`;
+        }
+      };
+
       const storageKey = "passkeys.currentUsername";
 
-      const statusEl = document.getElementById("status");
+      const toastEl = document.getElementById("toast");
       const guestView = document.getElementById("guest-view");
       const accountView = document.getElementById("account-view");
-      const guestForm = document.getElementById("guest-form");
-      const guestUsernameInput = document.getElementById(
-        "guest-username",
-      );
+      const guestHint = document.getElementById("guest-hint");
+      const retrySigninButton = document.getElementById("retry-signin");
       const conditionalStatus = document.getElementById(
         "conditional-status",
       );
@@ -202,6 +271,12 @@
       const passkeyDialogDescription = document.getElementById(
         "passkey-dialog-description",
       );
+      const passkeyUsernameField = document.getElementById(
+        "passkey-username-field",
+      );
+      const passkeyUsernameInput = document.getElementById(
+        "passkey-username",
+      );
       const passkeyDisplayNameField = document.getElementById(
         "passkey-display-name-field",
       );
@@ -217,16 +292,146 @@
       const passkeyDialogSubmit = document.getElementById(
         "submit-passkey-dialog",
       );
+      const fallbackView = document.getElementById("fallback-view");
+      const remoteQrContainer = document.getElementById("remote-qr");
+      const remoteStatusText = document.getElementById("remote-status");
+      const remoteRefreshButton = document.getElementById(
+        "remote-refresh",
+      );
+      const remoteNotice = document.getElementById("remote-notice");
 
       const state = {
         account: null,
         credentials: [],
         conditionalAvailable: null,
+        knownUsername: "",
       };
 
-      const setStatus = (message, type = "info") => {
-        statusEl.textContent = message;
-        statusEl.dataset.status = type;
+      const remoteState = {
+        token: (() => {
+          try {
+            const { hash, pathname, search } = window.location;
+            if (!hash) {
+              return null;
+            }
+            const content = hash.startsWith("#") ? hash.slice(1) : hash;
+            if (!content) {
+              return null;
+            }
+            const segments = content.split("&");
+            let token = null;
+            const remaining = [];
+            for (const segment of segments) {
+              if (!segment) {
+                continue;
+              }
+              const equalsIndex = segment.indexOf("=");
+              if (equalsIndex === -1) {
+                remaining.push(segment);
+                continue;
+              }
+              const key = segment.slice(0, equalsIndex);
+              const rawValue = segment.slice(equalsIndex + 1);
+              if (key === "remote" && token === null) {
+                try {
+                  token = decodeURIComponent(rawValue);
+                } catch {
+                  token = rawValue;
+                }
+              } else {
+                remaining.push(segment);
+              }
+            }
+            const replaceHash = (nextHashValue) => {
+              const nextUrl = `${pathname}${search}${nextHashValue}`;
+              if (typeof window.history?.replaceState === "function") {
+                window.history.replaceState(null, "", nextUrl);
+              } else {
+                window.location.hash = nextHashValue;
+              }
+            };
+            const nextHash = remaining.length > 0
+              ? `#${remaining.join("&")}`
+              : "";
+            if (typeof token === "string") {
+              replaceHash(nextHash);
+              const trimmed = token.trim();
+              return trimmed ? trimmed : null;
+            }
+            if (nextHash !== hash) {
+              replaceHash(nextHash);
+            }
+            return null;
+          } catch {
+            return null;
+          }
+        })(),
+        sessionId: null,
+        pollToken: null,
+        channel: null,
+        claimToken: null,
+        eventSource: null,
+        authorized: false,
+      };
+
+      const isMobileDevice =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
+          .test(navigator.userAgent);
+
+      let toastTimeout = null;
+
+      const hideToast = () => {
+        if (!toastEl) {
+          return;
+        }
+        if (toastTimeout) {
+          clearTimeout(toastTimeout);
+          toastTimeout = null;
+        }
+        toastEl.hidden = true;
+      };
+
+      const setStatus = (message, type = "info", options = {}) => {
+        if (!toastEl) {
+          return;
+        }
+        if (toastTimeout) {
+          clearTimeout(toastTimeout);
+          toastTimeout = null;
+        }
+        toastEl.textContent = message;
+        toastEl.dataset.status = type;
+        toastEl.hidden = false;
+        const duration = typeof options.duration === "number"
+          ? options.duration
+          : null;
+        if (duration && duration > 0) {
+          toastTimeout = window.setTimeout(() => {
+            hideToast();
+          }, duration);
+        }
+      };
+
+      let supportsPasskeys = false;
+
+      const setGuestHint = (message) => {
+        if (guestHint) {
+          guestHint.textContent = message;
+        }
+      };
+
+      const updateRetryButtonVisibility = () => {
+        if (!retrySigninButton) {
+          return;
+        }
+        retrySigninButton.hidden = !state.knownUsername;
+      };
+
+      const updateSignUpButtonVisibility = () => {
+        if (!createAccountButton) {
+          return;
+        }
+        createAccountButton.hidden = !supportsPasskeys;
       };
 
       const formatDate = (value) => {
@@ -242,18 +447,26 @@
       };
 
       const storeUsername = (value) => {
+        const normalized = typeof value === "string"
+          ? value.trim()
+          : "";
+        state.knownUsername = normalized;
         try {
-          if (value) {
-            localStorage.setItem(storageKey, value);
+          if (normalized) {
+            localStorage.setItem(storageKey, normalized);
+          } else {
+            localStorage.removeItem(storageKey);
           }
         } catch {
           // ignore storage failures
         }
+        updateRetryButtonVisibility();
       };
 
       const getStoredUsername = () => {
         try {
-          return localStorage.getItem(storageKey) ?? "";
+          const value = localStorage.getItem(storageKey) ?? "";
+          return value.trim();
         } catch {
           return "";
         }
@@ -342,6 +555,9 @@
           accountDisplayNameInput.value = "";
           renderCredentials([]);
           updateViews();
+          setGuestHint(
+            "パスキーが登録されていれば自動的にサインインします。",
+          );
           return;
         }
         const { user, credentials } = account;
@@ -352,6 +568,10 @@
         accountDisplayNameInput.value = user.displayName ?? "";
         renderCredentials(credentials);
         updateViews();
+        if (fallbackView) {
+          fallbackView.hidden = true;
+        }
+        closeRemoteEventSource();
       };
 
       const setAccount = (account) => {
@@ -407,6 +627,119 @@
         return `リクエストがステータス${response.status}で失敗しました`;
       };
 
+      let qrModulePromise = null;
+
+      const ensureQrModule = async () => {
+        if (!qrModulePromise) {
+          qrModulePromise = import(
+            "https://taisukef.github.io/qrcode-generator/es/QR.js"
+          );
+        }
+        return qrModulePromise;
+      };
+
+      const closeRemoteEventSource = () => {
+        if (remoteState.eventSource) {
+          remoteState.eventSource.onmessage = null;
+          remoteState.eventSource.onerror = null;
+          remoteState.eventSource.close();
+          remoteState.eventSource = null;
+        }
+      };
+
+      const renderRemoteQr = async (value) => {
+        if (!remoteQrContainer) {
+          return;
+        }
+        remoteQrContainer.replaceChildren();
+        if (!value) {
+          remoteQrContainer.textContent = "-";
+          return;
+        }
+        try {
+          const { QR } = await ensureQrModule();
+          const matrix = QR.encode(value);
+          if (!Array.isArray(matrix) || matrix.length === 0) {
+            throw new Error("QR matrix was empty");
+          }
+          const margin = 1;
+          const gridSize = matrix.length + margin * 2;
+          let pathData = "";
+          for (let y = 0; y < matrix.length; y++) {
+            const row = matrix[y];
+            for (let x = 0; x < row.length; x++) {
+              if (row[x]) {
+                const px = x + margin;
+                const py = y + margin;
+                pathData += `M${px} ${py}h1v1h-1z`;
+              }
+            }
+          }
+          const svg = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "svg",
+          );
+          svg.setAttribute("viewBox", `0 0 ${gridSize} ${gridSize}`);
+          svg.setAttribute("width", "240");
+          svg.setAttribute("height", "240");
+          svg.setAttribute("role", "img");
+          svg.setAttribute("aria-label", "ログイン用QRコード");
+          const background = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect",
+          );
+          background.setAttribute("width", String(gridSize));
+          background.setAttribute("height", String(gridSize));
+          background.setAttribute("fill", "#fff");
+          const path = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path",
+          );
+          path.setAttribute("fill", "#000");
+          path.setAttribute("d", pathData);
+          svg.append(background, path);
+          remoteQrContainer.append(svg);
+        } catch (error) {
+          console.error("Failed to render QR code:", error);
+          const code = document.createElement("code");
+          code.textContent = value;
+          remoteQrContainer.append(code);
+        }
+      };
+
+      const authorizeRemoteSession = async () => {
+        if (!remoteState.token || remoteState.authorized) {
+          return;
+        }
+        try {
+          const response = await fetch("/remote-auth/authorize", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: remoteState.token }),
+          });
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          remoteState.authorized = true;
+          if (remoteNotice) {
+            remoteNotice.hidden = false;
+            remoteNotice.dataset.state = "success";
+            remoteNotice.textContent =
+              "別のデバイスにサインイン情報を送信しました。";
+          }
+        } catch (error) {
+          console.error("Failed to authorise remote session:", error);
+          if (remoteNotice) {
+            remoteNotice.hidden = false;
+            remoteNotice.dataset.state = "error";
+            remoteNotice.textContent = error?.message
+              ? `デスクトップへの共有に失敗しました: ${error.message}`
+              : "デスクトップへの共有に失敗しました。";
+          }
+        }
+      };
+
       const fetchAccount = async (username) => {
         const normalized = username.trim();
         if (!normalized) {
@@ -438,8 +771,281 @@
         const account = await fetchAccount(username);
         setAccount(account);
         storeUsername(account.user.username);
+        if (remoteState.token && !remoteState.authorized) {
+          await authorizeRemoteSession();
+        }
         return account;
       };
+
+      const finalizeRemoteClaim = async () => {
+        if (
+          !remoteState.sessionId ||
+          !remoteState.pollToken ||
+          !remoteState.claimToken ||
+          !remoteStatusText
+        ) {
+          return;
+        }
+        try {
+          remoteStatusText.dataset.state = "authorizing";
+          remoteStatusText.textContent =
+            "別のデバイスからの認証を確認しています…";
+          const response = await fetch("/remote-auth/claim", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: remoteState.sessionId,
+              pollToken: remoteState.pollToken,
+              claimToken: remoteState.claimToken,
+            }),
+          });
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          const data = await response.json();
+          if (!data || typeof data !== "object" || !data.user) {
+            throw new Error("サーバーから予期しない応答がありました。");
+          }
+          remoteStatusText.dataset.state = "success";
+          remoteStatusText.textContent = "サインインに成功しました。";
+          closeRemoteEventSource();
+          await loadAccount(data.user.username);
+          setStatus("サインインに成功しました。", "success");
+          if (fallbackView) {
+            fallbackView.hidden = true;
+          }
+        } catch (error) {
+          console.error("Failed to finalise remote session:", error);
+          remoteState.claimToken = null;
+          remoteStatusText.dataset.state = "error";
+          remoteStatusText.textContent = error?.message
+            ? `サインインの完了に失敗しました: ${error.message}`
+            : "サインインの完了に失敗しました。";
+          if (remoteRefreshButton) {
+            remoteRefreshButton.disabled = false;
+          }
+        }
+      };
+
+      const handleRemoteUpdate = async (event) => {
+        if (!remoteStatusText) {
+          return;
+        }
+        let payload;
+        try {
+          payload = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        const status = payload?.status ?? "pending";
+        switch (status) {
+          case "pending":
+            remoteState.claimToken = null;
+            remoteStatusText.dataset.state = "waiting";
+            remoteStatusText.textContent =
+              "スマートフォンでQRコードを読み取り、サインインしてください。";
+            break;
+          case "authorized":
+            remoteState.claimToken =
+              typeof payload.claimToken === "string"
+                ? payload.claimToken
+                : null;
+            remoteStatusText.dataset.state = "authorized";
+            if (payload.user && typeof payload.user === "object") {
+              const display = payload.user.displayName ||
+                payload.user.username;
+              remoteStatusText.textContent = display
+                ? `${display} さんの認証情報を受信しました。確認しています…`
+                : "認証情報を確認しています…";
+            } else {
+              remoteStatusText.textContent =
+                "認証情報を受信しました。確認しています…";
+            }
+            if (remoteState.claimToken) {
+              await finalizeRemoteClaim();
+            }
+            break;
+          case "claimed":
+            remoteStatusText.dataset.state = "success";
+            remoteStatusText.textContent =
+              "サインイン処理を完了しました。";
+            closeRemoteEventSource();
+            break;
+          case "expired":
+            remoteState.claimToken = null;
+            remoteStatusText.dataset.state = "error";
+            remoteStatusText.textContent =
+              "QRコードの有効期限が切れました。再生成してください。";
+            closeRemoteEventSource();
+            if (remoteRefreshButton) {
+              remoteRefreshButton.disabled = false;
+            }
+            break;
+          default:
+            remoteStatusText.dataset.state = "info";
+            remoteStatusText.textContent = "状態を確認しています…";
+        }
+      };
+
+      const startRemoteSession = async () => {
+        if (!remoteStatusText) {
+          return;
+        }
+        remoteState.sessionId = null;
+        remoteState.pollToken = null;
+        remoteState.channel = null;
+        remoteState.claimToken = null;
+        remoteStatusText.dataset.state = "pending";
+        remoteStatusText.textContent = "QRコードを生成しています…";
+        if (remoteRefreshButton) {
+          remoteRefreshButton.disabled = true;
+        }
+        closeRemoteEventSource();
+        try {
+          const response = await fetch("/remote-auth/session", {
+            method: "POST",
+            credentials: "include",
+          });
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          const data = await response.json();
+          if (
+            !data ||
+            typeof data !== "object" ||
+            typeof data.sessionId !== "string" ||
+            typeof data.pollToken !== "string" ||
+            typeof data.loginUrl !== "string"
+          ) {
+            throw new Error("サーバーから予期しない応答がありました。");
+          }
+          const channel = typeof data.channel === "string"
+            ? data.channel.trim()
+            : "";
+          const resolvedChannel = channel || data.pollToken;
+          if (!resolvedChannel) {
+            throw new Error("更新通知チャネルを構成できませんでした。");
+          }
+          remoteState.sessionId = data.sessionId;
+          remoteState.pollToken = data.pollToken;
+          remoteState.channel = resolvedChannel;
+          await renderRemoteQr(data.loginUrl);
+          remoteStatusText.dataset.state = "waiting";
+          remoteStatusText.textContent =
+            "スマートフォンでQRコードを読み取り、サインインしてください。";
+          const subscribeUrl = buildPubsubUrl(resolvedChannel);
+          if (!subscribeUrl) {
+            throw new Error("更新通知チャネルを構成できませんでした。");
+          }
+          const source = new EventSource(subscribeUrl);
+          source.onmessage = handleRemoteUpdate;
+          source.onerror = () => {
+            remoteStatusText.dataset.state = "error";
+            remoteStatusText.textContent =
+              "状態通知サービスとの接続が中断されました。QRコードを再生成してください。";
+            closeRemoteEventSource();
+            if (remoteRefreshButton) {
+              remoteRefreshButton.disabled = false;
+            }
+          };
+          remoteState.eventSource = source;
+        } catch (error) {
+          console.error("Failed to create remote session:", error);
+          remoteStatusText.dataset.state = "error";
+          remoteStatusText.textContent = error?.message
+            ? `QRコードを生成できませんでした: ${error.message}`
+            : "QRコードを生成できませんでした。";
+        } finally {
+          if (remoteRefreshButton) {
+            remoteRefreshButton.disabled = false;
+          }
+        }
+      };
+
+      const showRemoteFallback = async () => {
+        if (!fallbackView || remoteState.token) {
+          return;
+        }
+        if (fallbackView.hidden) {
+          fallbackView.hidden = false;
+        }
+        if (!remoteState.sessionId) {
+          await startRemoteSession();
+        }
+      };
+
+      const hideRemoteFallback = () => {
+        if (fallbackView && !fallbackView.hidden) {
+          fallbackView.hidden = true;
+        }
+        if (!remoteState.token) {
+          closeRemoteEventSource();
+        }
+      };
+
+      const prepareRemoteJoin = async () => {
+        if (!remoteState.token || !remoteNotice) {
+          return;
+        }
+        remoteNotice.hidden = false;
+        remoteNotice.dataset.state = "pending";
+        remoteNotice.textContent = "接続状況を確認しています…";
+        try {
+          const response = await fetch(
+            `/remote-auth/session?token=${
+              encodeURIComponent(remoteState.token)
+            }`,
+            { credentials: "include" },
+          );
+          if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+          }
+          const data = await response.json();
+          if (data?.status === "expired") {
+            remoteNotice.dataset.state = "error";
+            remoteNotice.textContent =
+              "このリンクの有効期限が切れています。もう一度QRコードを表示してください。";
+          } else {
+            remoteNotice.dataset.state = "info";
+            remoteNotice.textContent =
+              "デスクトップがサインインを待機しています。パスキーでサインインしてください。";
+          }
+        } catch (error) {
+          remoteNotice.dataset.state = "error";
+          remoteNotice.textContent = error?.message
+            ? `接続を確認できませんでした: ${error.message}`
+            : "接続を確認できませんでした。";
+        }
+      };
+
+      const handleMissingPasskey = async () => {
+        if (!state.knownUsername) {
+          setGuestHint(
+            "まだパスキーが登録されていません。スマートフォンでサインインするか、パスキーでサインアップしてください。",
+          );
+        } else {
+          setGuestHint(
+            "このアカウントのパスキーが見つかりません。スマートフォンでサインインするか、新しく登録してください。",
+          );
+        }
+        updateSignUpButtonVisibility();
+        if (
+          !remoteState.token && (!supportsPasskeys || !isMobileDevice)
+        ) {
+          await showRemoteFallback();
+        } else if (!remoteState.token) {
+          hideRemoteFallback();
+        }
+      };
+
+      if (remoteRefreshButton) {
+        remoteRefreshButton.addEventListener("click", () => {
+          startRemoteSession().catch((error) => {
+            console.error("Failed to restart remote session:", error);
+          });
+        });
+      }
 
       const refreshAccount = async () => {
         if (!state.account) {
@@ -460,11 +1066,104 @@
         setAccount(null);
       };
 
-      const authenticateWithPasskey = async (username) => {
-        setStatus("パスキーの操作を待機しています…");
-        await client.authenticate({ username });
-        await loadAccount(username);
-        setStatus("サインインに成功しました。", "success");
+      const parseAuthenticationError = (error) => {
+        if (error instanceof DOMException) {
+          switch (error.name) {
+            case "NotAllowedError":
+            case "AbortError":
+              return {
+                message: "パスキーの操作がキャンセルされました。",
+                type: "info",
+                reason: "cancelled",
+              };
+            case "InvalidStateError":
+              return {
+                message:
+                  "このデバイスには既にこのアカウントのパスキーがあります。別の認証器を使用するか既存の鍵を削除してください。",
+                type: "error",
+                reason: "invalid-state",
+              };
+            default:
+              if (error.message?.trim()) {
+                return {
+                  message: `サインインに失敗しました: ${error.message}`,
+                  type: "error",
+                  reason: "unknown",
+                };
+              }
+              return {
+                message: "サインインに失敗しました。",
+                type: "error",
+                reason: "unknown",
+              };
+          }
+        }
+        const status = typeof error?.status === "number"
+          ? error.status
+          : null;
+        const message = typeof error?.message === "string"
+          ? error.message.trim()
+          : "";
+        if (status === 404 || status === 400) {
+          return {
+            message: message ||
+              "パスキーが見つかりませんでした。新しく登録してください。",
+            type: "info",
+            reason: "no-account",
+          };
+        }
+        if (message) {
+          return {
+            message: `サインインに失敗しました: ${message}`,
+            type: "error",
+            reason: "unknown",
+          };
+        }
+        return {
+          message: "サインインがキャンセルされたか失敗しました。",
+          type: "error",
+          reason: "unknown",
+        };
+      };
+
+      const authenticateWithPasskey = async (
+        username,
+        options = {},
+      ) => {
+        const normalized = typeof username === "string"
+          ? username.trim()
+          : "";
+        const silent = Boolean(options.silent);
+        if (!normalized) {
+          if (!silent) {
+            setStatus(
+              "サインインするにはユーザー名が必要です。",
+              "error",
+            );
+          }
+          return { success: false, reason: "missing-username" };
+        }
+        if (!silent) {
+          setStatus("パスキーの操作を待機しています…");
+        }
+        try {
+          await client.authenticate({ username: normalized });
+          await loadAccount(normalized);
+          setStatus("サインインに成功しました。", "success");
+          return { success: true };
+        } catch (error) {
+          const failure = parseAuthenticationError(error);
+          if (!silent) {
+            setStatus(failure.message, failure.type);
+          }
+          return {
+            success: false,
+            reason: failure.reason,
+            error,
+            message: failure.message,
+            type: failure.type,
+          };
+        }
       };
 
       const checkConditionalMediation = async () => {
@@ -501,50 +1200,61 @@
         }
       };
 
-      guestForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        if (guestForm.dataset.loading === "true") {
-          return;
-        }
-        const username = guestUsernameInput.value.trim();
-        if (!username) {
-          setStatus("先にユーザー名を入力してください。", "error");
-          guestUsernameInput.focus();
-          return;
-        }
-        guestForm.dataset.loading = "true";
-        try {
-          await authenticateWithPasskey(username);
-        } catch (error) {
-          setStatus(
-            error?.message
-              ? `サインインに失敗しました: ${error.message}`
-              : "サインインがキャンセルされたか失敗しました。",
-            "error",
-          );
-        } finally {
-          guestForm.dataset.loading = "false";
-        }
-      });
-
-      guestUsernameInput.addEventListener("input", () => {
-        storeUsername(guestUsernameInput.value.trim());
-      });
+      if (retrySigninButton) {
+        retrySigninButton.addEventListener("click", async () => {
+          if (retrySigninButton.dataset.loading === "true") {
+            return;
+          }
+          const username = state.knownUsername;
+          if (!username) {
+            setStatus(
+              "サインインするにはユーザー名を指定してください。",
+              "error",
+            );
+            return;
+          }
+          retrySigninButton.dataset.loading = "true";
+          retrySigninButton.disabled = true;
+          try {
+            const result = await authenticateWithPasskey(username);
+            if (!result.success && result.reason === "no-account") {
+              await handleMissingPasskey();
+            }
+          } finally {
+            retrySigninButton.dataset.loading = "false";
+            retrySigninButton.disabled = false;
+          }
+        });
+      }
 
       const openPasskeyDialog = (mode) => {
         passkeyDialog.dataset.mode = mode;
+        const defaultUsername = state.account?.user?.username ||
+          state.knownUsername;
         if (mode === "create") {
           passkeyDialogTitle.textContent = "アカウントを作成";
           passkeyDialogDescription.textContent =
             "このユーザー名に最初のパスキーを登録します。";
+          if (passkeyUsernameField) {
+            passkeyUsernameField.hidden = false;
+          }
+          if (passkeyUsernameInput) {
+            passkeyUsernameInput.value = defaultUsername || "";
+          }
           passkeyDisplayNameField.hidden = false;
           passkeyDialogSubmit.textContent = "アカウントを作成";
-          passkeyDisplayNameInput.value = guestUsernameInput.value
-            .trim();
+          passkeyDisplayNameInput.value = defaultUsername || "";
         } else {
           passkeyDialogTitle.textContent = "別のパスキーを追加";
           passkeyDialogDescription.textContent =
             "後から分かるように鍵に名前を付けてください。";
+          if (passkeyUsernameField) {
+            passkeyUsernameField.hidden = true;
+          }
+          if (passkeyUsernameInput) {
+            passkeyUsernameInput.value =
+              state.account?.user?.username || "";
+          }
           passkeyDisplayNameField.hidden = true;
           passkeyDialogSubmit.textContent = "パスキーを保存";
           if (state.account?.user?.displayName) {
@@ -557,23 +1267,21 @@
         passkeyNicknameInput.value = "";
         try {
           passkeyDialog.showModal();
-          passkeyNicknameInput.focus();
+          if (mode === "create" && passkeyUsernameInput) {
+            passkeyUsernameInput.focus();
+          } else {
+            passkeyNicknameInput.focus();
+          }
         } catch (error) {
           console.error("Unable to open dialog:", error);
         }
       };
 
-      createAccountButton.addEventListener("click", () => {
-        if (!guestUsernameInput.value.trim()) {
-          setStatus(
-            "アカウントを作成するにはユーザー名を入力してください。",
-            "error",
-          );
-          guestUsernameInput.focus();
-          return;
-        }
-        openPasskeyDialog("create");
-      });
+      if (createAccountButton) {
+        createAccountButton.addEventListener("click", () => {
+          openPasskeyDialog("create");
+        });
+      }
 
       addPasskeyButton.addEventListener("click", () => {
         if (!state.account) {
@@ -613,7 +1321,9 @@
         passkeyDialogSubmit.disabled = true;
         try {
           if (mode === "create") {
-            const username = guestUsernameInput.value.trim();
+            const username = passkeyUsernameInput
+              ? passkeyUsernameInput.value.trim()
+              : "";
             if (!username) {
               throw new Error("ユーザー名は必須です。");
             }
@@ -629,6 +1339,8 @@
               "success",
             );
             passkeyDialog.close();
+            storeUsername(username);
+            updateRetryButtonVisibility();
             await authenticateWithPasskey(username);
           } else {
             if (!state.account) {
@@ -861,11 +1573,41 @@
       });
 
       const initialise = async () => {
-        const stored = getStoredUsername();
-        if (stored) {
-          guestUsernameInput.value = stored;
+        state.knownUsername = getStoredUsername();
+        updateRetryButtonVisibility();
+
+        supportsPasskeys = browserSupportsWebAuthn();
+        updateSignUpButtonVisibility();
+
+        if (remoteState.token) {
+          await prepareRemoteJoin();
         }
-        await checkConditionalMediation();
+
+        if (!supportsPasskeys && !remoteState.token) {
+          clearAccount();
+          setGuestHint(
+            "このブラウザーはパスキーに対応していません。スマートフォンなどの対応デバイスでサインインしてください。",
+          );
+          if (!isMobileDevice) {
+            await showRemoteFallback();
+          } else {
+            hideRemoteFallback();
+          }
+          setStatus(
+            "このブラウザーではパスキーを利用できません。QRコードからサインインしてください。",
+            "info",
+          );
+          return;
+        }
+
+        if (supportsPasskeys) {
+          await checkConditionalMediation();
+        } else {
+          conditionalStatus.textContent =
+            "このブラウザーではパスキーを利用できません。";
+          conditionalStatus.dataset.state = "unsupported";
+        }
+
         const session = await getSession();
         if (session?.isAuthenticated && session.user) {
           try {
@@ -879,11 +1621,56 @@
               "セッションを復元できませんでした。もう一度サインインしてください。",
               "error",
             );
+            await handleMissingPasskey();
             return;
           }
         }
+
         clearAccount();
-        setStatus("準備が整いました。", "info");
+
+        if (state.knownUsername) {
+          const result = await authenticateWithPasskey(
+            state.knownUsername,
+            {
+              silent: true,
+            },
+          );
+          if (result.success) {
+            return;
+          }
+          if (result.reason === "no-account") {
+            setStatus(
+              "パスキーが見つかりませんでした。新しく登録してください。",
+              "info",
+            );
+            await handleMissingPasskey();
+            return;
+          }
+          if (result.message) {
+            setStatus(result.message, result.type ?? "error");
+          } else {
+            setStatus(
+              "パスキーの自動サインインを開始できませんでした。ボタンから再試行してください。",
+              "info",
+            );
+          }
+          setGuestHint(
+            "保存されているパスキーでサインインするには「パスキーでサインイン」を押してください。",
+          );
+          hideRemoteFallback();
+          return;
+        }
+
+        await handleMissingPasskey();
+
+        if (!remoteState.token) {
+          setStatus("準備が整いました。", "info");
+        } else {
+          setStatus(
+            "デスクトップでサインインを完了してください。",
+            "info",
+          );
+        }
       };
 
       await initialise();

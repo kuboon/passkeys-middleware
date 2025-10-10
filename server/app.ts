@@ -10,6 +10,11 @@ import {
   type PasskeyUser,
 } from "@passkeys-middleware/hono";
 import { DenoKvPasskeyStore } from "./deno-kv-passkey-store.ts";
+import {
+  RemoteAuthService,
+  type RemoteAuthSession,
+  toRemoteAuthSessionView,
+} from "./remote-auth-service.ts";
 import process from "node:process";
 
 const rpID = process.env.RP_ID ?? "localhost";
@@ -17,6 +22,11 @@ const rpName = process.env.RP_NAME ?? "Passkeys Middleware Demo";
 
 const app = new Hono();
 const credentialStore = await DenoKvPasskeyStore.create();
+const pubsubBaseUrl = process.env.PUBSUB_BASE_URL?.trim() ||
+  "https://pubsub.kbn.one/";
+const remoteAuth = await RemoteAuthService.create({
+  pubsubBaseUrl,
+});
 
 const SESSION_COOKIE_NAME = "passkey_session";
 const baseCookieOptions = {
@@ -49,6 +59,26 @@ const clearSession = (c: Context) => {
   });
   setSessionState(c, { isAuthenticated: false, user: null });
 };
+
+const sanitizeRemoteSession = toRemoteAuthSessionView;
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return char;
+    }
+  });
 
 const ensureAuthenticatedUser = async (c: Context): Promise<PasskeyUser> => {
   const session = getSessionState(c);
@@ -169,11 +199,167 @@ app.delete("/account", async (c) => {
   return c.json({ success: true });
 });
 
+app.post("/remote-auth/session", async (c) => {
+  setNoStore(c);
+  const session = await remoteAuth.createSession();
+  const requestUrl = new URL(c.req.url);
+  const loginUrl = new URL("/", requestUrl);
+  const hashParams = new URLSearchParams();
+  hashParams.set("remote", session.joinToken);
+  loginUrl.hash = hashParams.toString();
+  return c.json({
+    sessionId: session.id,
+    pollToken: session.pollToken,
+    channel: session.pollToken,
+    loginUrl: loginUrl.toString(),
+    expiresAt: session.expiresAt,
+  });
+});
+
+app.get("/remote-auth/session", async (c) => {
+  setNoStore(c);
+  const token = c.req.query("token")?.trim();
+  if (!token) {
+    throw new HTTPException(400, { message: "token is required" });
+  }
+  const session = await remoteAuth.getSessionByJoinToken(token);
+  if (!session) {
+    throw new HTTPException(404, { message: "Remote session not found" });
+  }
+  return c.json(sanitizeRemoteSession(session));
+});
+
+app.get("/remote-auth/events", async (c) => {
+  setNoStore(c);
+  const sessionId = c.req.query("session")?.trim();
+  const pollToken = c.req.query("token")?.trim();
+  if (!sessionId || !pollToken) {
+    throw new HTTPException(400, { message: "session and token are required" });
+  }
+  const session = await remoteAuth.getSessionForPoll(sessionId, pollToken);
+  if (!session) {
+    throw new HTTPException(404, { message: "Remote session not found" });
+  }
+
+  const encoder = new TextEncoder();
+  let unsubscribe: (() => void) | null = null;
+
+  const stream = new ReadableStream({
+    start(controller) {
+      const send = (value: RemoteAuthSession) => {
+        const payload = JSON.stringify(sanitizeRemoteSession(value));
+        controller.enqueue(
+          encoder.encode(`event: update\ndata: ${payload}\n\n`),
+        );
+        if (value.status === "claimed" || value.status === "expired") {
+          if (unsubscribe) {
+            unsubscribe();
+            unsubscribe = null;
+          }
+          controller.enqueue(encoder.encode(": closed\n\n"));
+          controller.close();
+        }
+      };
+
+      unsubscribe = remoteAuth.subscribe(sessionId, (value) => {
+        send(value);
+      });
+
+      send(session);
+      controller.enqueue(encoder.encode(": keep-alive\n\n"));
+    },
+    cancel() {
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+    },
+  });
+
+  const headers = new Headers({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-store",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  return new Response(stream, { headers });
+});
+
+app.post("/remote-auth/authorize", async (c) => {
+  setNoStore(c);
+  const currentUser = await ensureAuthenticatedUser(c);
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new HTTPException(400, { message: "Invalid JSON payload" });
+  }
+  if (!body || typeof body !== "object") {
+    throw new HTTPException(400, { message: "Invalid request body" });
+  }
+  const token = (body as { token?: unknown }).token;
+  if (typeof token !== "string" || !token.trim()) {
+    throw new HTTPException(400, { message: "token is required" });
+  }
+  const session = await remoteAuth.authorizeSession(token.trim(), currentUser);
+  return c.json(sanitizeRemoteSession(session));
+});
+
+app.post("/remote-auth/claim", async (c) => {
+  setNoStore(c);
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new HTTPException(400, { message: "Invalid JSON payload" });
+  }
+  if (!body || typeof body !== "object") {
+    throw new HTTPException(400, { message: "Invalid request body" });
+  }
+  const payload = body as {
+    sessionId?: unknown;
+    pollToken?: unknown;
+    claimToken?: unknown;
+  };
+  const sessionId = typeof payload.sessionId === "string"
+    ? payload.sessionId.trim()
+    : "";
+  const pollToken = typeof payload.pollToken === "string"
+    ? payload.pollToken.trim()
+    : "";
+  const claimToken = typeof payload.claimToken === "string"
+    ? payload.claimToken.trim()
+    : "";
+  if (!sessionId || !pollToken || !claimToken) {
+    throw new HTTPException(400, {
+      message: "sessionId, pollToken, and claimToken are required",
+    });
+  }
+  const session = await remoteAuth.claimSession({
+    id: sessionId,
+    pollToken,
+    claimToken,
+  });
+  if (!session.user) {
+    throw new HTTPException(500, { message: "Remote session user missing" });
+  }
+  setCookie(c, SESSION_COOKIE_NAME, session.user.id, {
+    ...baseCookieOptions,
+    secure: isSecureRequest(c),
+  });
+  setSessionState(c, { isAuthenticated: true, user: session.user });
+  return c.json({ success: true, user: session.user });
+});
+
 app.get("/", async (c) => {
   const html = await fetch(import.meta.resolve("./static/index.html")).then(
     (x) => x.text(),
   );
-  return c.html(html);
+  const rendered = html
+    .replaceAll("__RP_ID__", escapeHtml(rpID))
+    .replaceAll("__PUBSUB_BASE_JSON__", JSON.stringify(pubsubBaseUrl));
+  return c.html(rendered);
 });
 
 app.get("/styles.css", async (c) => {
