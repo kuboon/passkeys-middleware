@@ -543,7 +543,7 @@
       const ensureQrModule = async () => {
         if (!qrModulePromise) {
           qrModulePromise = import(
-            "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.esm.js"
+            "https://taisukef.github.io/qrcode-generator/es/QR.js"
           );
         }
         return qrModulePromise;
@@ -566,11 +566,48 @@
           return;
         }
         try {
-          const { toCanvas } = await ensureQrModule();
-          const canvas = document.createElement("canvas");
-          await toCanvas(canvas, value, { width: 240, margin: 1 });
-          canvas.setAttribute("aria-label", "ログイン用QRコード");
-          remoteQrContainer.append(canvas);
+          const { QR } = await ensureQrModule();
+          const matrix = QR.encode(value);
+          if (!Array.isArray(matrix) || matrix.length === 0) {
+            throw new Error("QR matrix was empty");
+          }
+          const margin = 1;
+          const gridSize = matrix.length + margin * 2;
+          let pathData = "";
+          for (let y = 0; y < matrix.length; y++) {
+            const row = matrix[y];
+            for (let x = 0; x < row.length; x++) {
+              if (row[x]) {
+                const px = x + margin;
+                const py = y + margin;
+                pathData += `M${px} ${py}h1v1h-1z`;
+              }
+            }
+          }
+          const svg = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "svg",
+          );
+          svg.setAttribute("viewBox", `0 0 ${gridSize} ${gridSize}`);
+          svg.setAttribute("width", "240");
+          svg.setAttribute("height", "240");
+          svg.setAttribute("role", "img");
+          svg.setAttribute("aria-label", "ログイン用QRコード");
+          const background = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect",
+          );
+          background.setAttribute("width", String(gridSize));
+          background.setAttribute("height", String(gridSize));
+          background.setAttribute("fill", "#fff");
+          const path = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path",
+          );
+          path.setAttribute("fill", "#000");
+          path.setAttribute("d", pathData);
+          svg.append(background, path);
+          remoteQrContainer.append(svg);
         } catch (error) {
           console.error("Failed to render QR code:", error);
           const code = document.createElement("code");
